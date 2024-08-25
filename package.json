@@ -1,0 +1,25 @@
+{
+	"name": "code-last-protocol",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc && vite build",
+		"preview": "vite preview",
+		"start": "npm run build && npm run preview"
+	},
+	"devDependencies": {
+		"@preact/preset-vite": "^2.9.0",
+		"typescript": "^5.5.4",
+		"vite": "^5.4.1",
+		"vite-plugin-pwa": "^0.20.1",
+		"vite-tsconfig-paths": "^5.0.1"
+	},
+	"dependencies": {
+		"@nanostores/preact": "^0.5.2",
+		"@vicimpa/perlin-noise": "^0.0.2",
+		"mol_wire_lib": "^1.0.1136",
+		"nanostores": "^0.10.3",
+		"preact": "^10.23.2"
+	}
+}

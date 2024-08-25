@@ -1,0 +1,39 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"useDefineForClassFields": true,
+		"strictFunctionTypes": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"declaration": true, 
+		"allowJs": false,
+		"checkJs": false,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noImplicitReturns": true,
+		"noImplicitAny": true,
+		"noImplicitThis": true,
+		"noImplicitOverride": true,
+		"skipLibCheck": true,
+		"resolvePackageJsonExports": true,
+		"allowSyntheticDefaultImports": false,
+		"noEmit": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"lib": ["ESNext", "DOM"],
+		"outDir": "./dist/",
+		"paths": {
+			"ver/*": ["./src/ver/*"],
+			"lib/*": ["./src/lib/*"],
+			"@/*": ["./src/*"]
+		}
+	},
+	"include": ["./src/"],
+	"exclude": ["./node_modules/"]
+}

@@ -1,0 +1,65 @@
+@font-face {
+	font-family: arkhip;
+	src: url(/assets/fonts/arkhip_font.ttf);
+}
+@font-face {
+	font-family: Hack;
+	src: url(/assets/fonts/HackNerdFont-Regular.ttf);
+}
+@font-face {
+	font-family: ggsans;
+	src: url(/assets/fonts/ggsans-Normal.ttf);
+}
+
+:root {
+	--main-color-bg: #222222;
+	--main-height: 100dvh;
+}
+
+* {
+	padding: 0;
+	margin: 0;
+	tab-size: 4;
+	box-sizing: border-box;
+	outline: none;
+}
+
+body {
+	color: #eeeeee;
+	background: #222222;
+}
+
+
+[theme-custom] {
+	--main-color: hsl(200, 70%, 70%);
+
+	accent-color: color-mix(in oklab, var(--main-color) 70%, #000000);
+
+	font-family: arkhip, monospace;
+
+	div {
+		font-family: arkhip, monospace;
+	}
+
+	button {
+		user-select: none;
+		font-family: arkhip, monospace;
+	}
+
+	input, button, textarea {
+		padding: 5px 10px;
+		color: var(--main-color);
+		background: color-mix(in oklab, var(--main-color) 10%, #333333);
+		border: solid 1px color-mix(in oklab, var(--main-color) 60%, #777777);
+		transition: all 100ms ease-in;
+	}
+
+	input:focus, button:active textarea:focus, textarea:active {
+		border: solid 1px color-mix(in oklab, var(--main-color) 60%, #ffffff);
+		border-radius: 5px;
+	}
+}
+
+.GUI {
+	user-select: none;
+}

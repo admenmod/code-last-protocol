@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="manifest" content="/manifest.json" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+		<title>Code: Last Protocol</title>
+	</head>
+	<body>
+		<div id="app">
+			<style>
+				body { margin: 0; }
+				#app {
+					display: grid;
+					align-items: center;
+					justify-items: center;
+					width: 100vw;
+					height: 100dvh;
+
+					&:fullscreen > * {
+						height: calc(100dvh - env(keyboard-inset-height, 0px));
+					}
+				}
+				#GUI {
+					display: grid;
+					align-items: center;
+					justify-items: center;
+					width: 100%;
+					height: 100%;
+					overflow: auto;
+					align-self: start;
+					justify-self: center;
+					grid-area: 1/1/1/1;
+				}
+				#canvas {
+					align-self: start;
+					justify-self: center;
+					grid-area: 1/1/1/1;
+					width: 100%;
+					height: 100dvh;
+					background: #333333;
+				}
+			</style>
+
+			<canvas id="canvas"></canvas>
+			<div id="GUI"></div>
+		</div>
+
+		<script src="/.eruda.js"></script>
+		<script>eruda.init();</script>
+
+		<script type="module" src="/src/main.ts"></script>
+	</body>
+</html>
