@@ -2,14 +2,13 @@ import { Node } from 'lib/scenes/Node';
 import { ProcessSystem } from 'lib/scenes/Node';
 import { RenderSystem } from 'lib/scenes/CanvasItem';
 import { ControllersSystem } from 'lib/scenes/Control';
-import { PhysicsSystem } from 'lib/scenes/PhysicsItem';
 
 import { AnimationManager } from '@/animations';
 import { canvas, touches, viewport } from '@/canvas';
 import { $selected_structure, exit, init, process, render } from './state';
 
 import { NAME } from './index';
-import { MainScene } from './scenes/MainScene';
+import { MainScene } from '@/scenes/MainScene';
 import { kii } from '@/keyboard';
 
 
@@ -23,12 +22,10 @@ exit.on(() => canvas.off('resize', NAME));
 export const processSystem = new ProcessSystem();
 export const renderSystem = new RenderSystem();
 export const controllersSystem = new ControllersSystem(touches, viewport);
-export const physicsSystem = new PhysicsSystem();
 
 process.on(dt => {
 	controllersSystem.update(dt);
 	processSystem.update(dt);
-	physicsSystem.update(dt);
 });
 
 render.on(viewport => {
@@ -44,7 +41,6 @@ init.once(async () => {
 	processSystem.addRoot(root_node);
 	renderSystem.addRoot(root_node);
 	controllersSystem.addRoot(root_node);
-	physicsSystem.addRoot(root_node);
 
 	await MainScene.load();
 	const main_scene = new MainScene();

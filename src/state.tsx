@@ -3,9 +3,9 @@ import { atom } from 'nanostores';
 import { FunctionIsEvent } from 'ver/events';
 import { window_resize, before_unload } from '@/global-events';
 
-import * as Scene_menu from './scenes/menu';
-import * as Scene_game from './scenes/game';
-import * as Scene_settings from './scenes/settings';
+import * as Scene_menu from '@/app/menu';
+import * as Scene_game from '@/app/game';
+import * as Scene_settings from '@/app/settings';
 
 
 export const $is_fullscreen = atom(false);

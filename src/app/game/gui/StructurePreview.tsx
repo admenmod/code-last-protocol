@@ -1,4 +1,4 @@
-import type { Structure } from '../scenes/Structure';
+import type { Structure } from '@/world/structure';
 
 
 export function StructurePreview<T extends Structure>({ structure }: { structure: T }) {
