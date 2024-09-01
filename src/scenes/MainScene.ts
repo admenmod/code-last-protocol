@@ -115,12 +115,19 @@ export class MainScene extends Control {
 
 			if(dir === 'Left')	unit.diration -= 1;
 			if(dir === 'Right')	unit.diration += 1;
-			if(dir === 'Up')	this.$world.moveForward(unit);
+			if(dir === 'Up')	this.$world.moveForward(unit, 1);
 		};
 		ka_main.register(['ArrowLeft'], onmove);
 		ka_main.register(['ArrowRight'], onmove);
 		ka_main.register(['ArrowUp'], onmove);
 		ka_main.register(['ArrowDown'], onmove);
+
+		ka_main.register(['s'], () => {
+			this.$world.unitRadarScan(unit);
+		});
+		ka_main.register(['w'], () => {
+			this.$world.unitExtractForward(unit, 1);
+		});
 	}
 
 	protected override _process(this: MainScene, dt: number): void {

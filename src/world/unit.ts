@@ -16,9 +16,10 @@ export class Unit extends EventDispatcher {
 
 	public _diration: TDiration = 0;
 	public get diration() { return this._diration; }
-	public set diration(v) {
-		this._diration = Math.mod(v, 0, 8) as TDiration;
-	}
+	public set diration(v) { this._diration = Math.mod(v, 0, 8) as TDiration; }
+
+
+	public copasity: number = 10;
 
 
 	constructor(cell: Vector2) { super();

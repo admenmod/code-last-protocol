@@ -1,14 +1,15 @@
 import { math as Math } from 'ver/helpers';
 import { Vector2 } from 'ver/Vector2';
 import { Viewport } from 'ver/Viewport';
+
 import { Node2D } from 'lib/scenes/Node2D';
 import { CELL_SIZE } from '@/config';
 import { generatePerlinNoise } from '@vicimpa/perlin-noise';
 
 
-const W = 128, H = 128;
-const MAP_SIZE = W * H;
-const SIZE_X = CELL_SIZE*W, SIZE_Y = CELL_SIZE*H; 
+export const W = 128, H = 128;
+export const MAP_SIZE = W * H;
+export const SIZE_X = CELL_SIZE*W, SIZE_Y = CELL_SIZE*H; 
 
 export const I = (v: Vector2) => v.x + v.y * W;
 export const XY = (i: number) => new Vector2(i % W, Math.floor(i/W));
@@ -20,11 +21,11 @@ const seedR = 0x1d1f10;
 const SEED_HEIGHT_MAP = 0x6147db;
 
 export class WorldMap extends Node2D {
-	public ll: number = 0;
+	public draw_mode: 'height' | 'height+demp' = 'height';
 
 	public height_map = generatePerlinNoise(W, H, {
 		seed: SEED_HEIGHT_MAP, amplitude: 0.1, octaveCount: 6, persistence: 0.5
-	}).map(it => Math.clamp(0, (it - 0.5) * 2, 1));
+	}).map(it => Math.clamp(0, it * 4 - 2, 1));
 
 	public demp_map = generatePerlinNoise(W, H, {
 		seed: seedR, amplitude: 0.1, octaveCount: 6, persistence: 0.5
@@ -48,13 +49,10 @@ export class WorldMap extends Node2D {
 			const pos = XY(i);
 
 			const demp = this.demp_map[i];
-			const height = (this.height_map[i] - this.ll) * 2;
+			const height = this.height_map[i];
 
-			const r = 1 	* height * 255;
-			const g = 1		* height * 255;
-			const b = 1		* height * 255;
-
-			ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+			if(this.draw_mode === 'height') ctx.fillStyle = `hsl(0 0 ${height*100})`;
+			else if(this.draw_mode === 'height+demp') ctx.fillStyle = `hsl(${0} ${demp*100} ${(height+0.2) /1.20 *100})`;
 			ctx.fillRect(pos.x, pos.y, 1, 1);
 		}
 	}

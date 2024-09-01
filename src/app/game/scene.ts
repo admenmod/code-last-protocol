@@ -60,7 +60,6 @@ controllersSystem.on('input:click', () => $selected_structure.set(null));
 init.once(() => {
 	window.addEventListener('click', () => kii.focus());
 
-
 	kii.on('keyup:input', e => {
 		if(e.key === 'Escape') return void $selected_structure.set(null);
 	});
