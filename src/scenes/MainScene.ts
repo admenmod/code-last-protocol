@@ -115,7 +115,7 @@ export class MainScene extends Control {
 
 			if(dir === 'Left')	unit.diration -= 1;
 			if(dir === 'Right')	unit.diration += 1;
-			if(dir === 'Up')	this.$world.moveForward(unit, 1);
+			if(dir === 'Up') this.$world.moveForward(unit, 1);
 		};
 		ka_main.register(['ArrowLeft'], onmove);
 		ka_main.register(['ArrowRight'], onmove);

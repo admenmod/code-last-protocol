@@ -1,4 +1,4 @@
-import { math as Math } from 'ver/helpers';
+import { math as Math, delay } from 'ver/helpers';
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
 
@@ -15,6 +15,7 @@ import { Env } from '@/world/env';
 import { dirToVec2 } from '@/utils/cell';
 import { CELL_SIZE } from '@/config';
 import { ka_main } from '@/keyboard';
+import { Evaluetor } from '@/code/Evaluetor';
 
 
 type IScanData = {
@@ -72,8 +73,8 @@ export class World extends Node {
 	public radarScan(pos: Vector2, height: number, force: number) {
 		const arr: IScanData = [];
 
-		for(let y = pos.y-1; y < pos.y+2; y++) {
-			for(let x = pos.x-1; x < pos.x+2; x++) {
+		for(let y = pos.y-force; y < pos.y+1+force; y++) {
+			for(let x = pos.x-force; x < pos.x+1+force; x++) {
 				const pos = new Vector2(x, y);
 				const i = I(pos);
 
@@ -93,7 +94,11 @@ export class World extends Node {
 		if(!this.radar_scan_data.has(unit)) this.radar_scan_data.set(unit, data);
 
 		for(let i = 0; i < next.length; i++) {
-			if(!data.some(it => it.pos.isSame(next[i].pos))) data.push({ pos: next[i].pos, value: next[i].value });
+			const o = data.find(it => it.pos.isSame(next[i].pos));
+
+			if(o) {
+				o.value = next[i].value;
+			} else data.push({ pos: next[i].pos, value: next[i].value });
 		}
 
 		this['@RadarScan'].emit(next, prev, data);
@@ -125,7 +130,10 @@ export class World extends Node {
 		if(!this.resources_cargo.has(unit)) this.resources_cargo.set(unit, cargo);
 
 		for(let i = 0; i < res.length; i++) {
-			if(unit.copasity - cargo.reduce((acc, value) => value.count + acc, 0) < res[i].count) continue;
+			if(unit.copasity - cargo.reduce((acc, value) => value.count + acc, 0) < res[i].count) {
+				alert('Error: cargo filled');
+				continue;
+			}
 
 			const r = cargo.find(it => it.title === res[i].title);
 			if(r) r.count += res[i].count;
@@ -139,6 +147,9 @@ export class World extends Node {
 	public unitExtractForward(unit: Unit, distance: number) {
 		return this.unitExtract(unit, dirToVec2(unit.diration).inc(distance));
 	}
+
+
+	public unit_evaluetors = new Map<Unit, Evaluetor>();
 
 
 	protected override async _init(this: World): Promise<void> {
@@ -167,6 +178,16 @@ export class World extends Node {
 		this.on('ResourcesExtract:unit', (res, unit) => {
 			alert(JSON.stringify(this.resources_cargo.get(unit)!, null, '  '));
 		});
+
+
+		const code = await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
+
+		this.$units.on('create', unit => {
+			const evaluetor = new Evaluetor(code, this, unit);
+			this.unit_evaluetors.set(unit, evaluetor);
+			this.resources_cargo.set(unit, []);
+			evaluetor.run();
+		});
 	}
 
 
@@ -176,11 +197,19 @@ export class World extends Node {
 		ctx.save();
 		ctx.clearRect(0, 0, W, H);
 
-		ctx.fillStyle = '#0000ee22';
+		// ctx.fillStyle = '#0000ee22';
 		for(let i = 0; i < data.length; i++) {
 			const { pos, value } = data[i];
+			ctx.fillStyle = `hsl(0 0 ${value*100})`;
 			ctx.fillRect(pos.x+W/2, pos.y+H/2, 1, 1);
 		}
 		ctx.restore();
+	}
+
+
+	protected override _process(dt: number): void {
+		for(const [unit, evaluetor] of this.unit_evaluetors) {
+			evaluetor.tick(dt);
+		}
 	}
 }
