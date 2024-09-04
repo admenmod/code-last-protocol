@@ -107,7 +107,6 @@ export class MainScene extends Control {
 
 	protected override _ready(this: MainScene): void {
 		this.$world.$strutcure.create(MainBase, new Vector2());
-		this.$world.$resources.create(Resource, '<Resource>', new Vector2(8, -2), new Vector2(1, 1));
 		const unit = this.$world.$units.create(Unit, new Vector2(0, 0));
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {

@@ -18,22 +18,26 @@ on('enemy detected', () => {
 
 function* moveToBase() {
 	yield* moveTo(memory.base_position);
+	yield* turn(1);
 }
 
 function* searchAndExtractResource() {
 	const data = yield* scan();
-	console.log({ data });
+	// console.log({ data });
 
-	const resource = data.find(it => it.title === 'Resource');
+	const resource = data.find(it => it.values.resource > 0);
 
-	console.log({ resource });
+	// console.log({ resource });
 
 	if(resource) {
-		yield* moveTo(resource);
+		yield* moveTo(resource.pos);
 		while(!cargo_filled) yield* extract(resource);
-	}
+	} else {
+		if(Math.random() < 0.2) yield* turn(1);
+		else if(Math.random() < 0.2) yield* turn(-1);
 
-	yield* moveForward(3);
+		yield* moveForward(3);
+	}
 }
 
 
@@ -53,9 +57,7 @@ function* moveInToBase(unit) {
 
 
 return function* main() {
-	yield { // run next 1
-		ajms: 20
-	};
+	yield; // run next 1
 
 	while(true) {
 		if(!cargo_filled) yield* c.run(searchAndExtractResource);

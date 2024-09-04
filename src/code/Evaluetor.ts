@@ -1,15 +1,18 @@
 import { Event, EventDispatcher } from 'ver/events';
 import { codeShell } from 'ver/codeShell';
 
-import { World } from '@/scenes/World';
-import { Unit } from '@/world/unit';
 
-type Iter = Generator<[string, ...any[]], any, any>;
+export declare namespace Generator {
+	export type T<T extends Generator<any, any, any>> = T extends Generator<infer R, any, any> ? R : never;
+	export type TReturn<T extends Generator<any, any, any>> = T extends Generator<any, infer R, any> ? R : never;
+	export type TNext<T extends Generator<any, any, any>> = T extends Generator<any, any, infer R> ? R : never;
+}
 
-const MOKE_TIME = 1000;
+
+export class Evaluetor<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
+	public '@run' = new Event<Evaluetor<Iter>, []>(this);
 
 
-export class Evaluetor extends EventDispatcher {
 	protected _isRunned: boolean = false;
 	public isRunned() { return this._isRunned; }
 	public isStoped() { return !this._isRunned; }
@@ -17,7 +20,7 @@ export class Evaluetor extends EventDispatcher {
 	protected dt: number = 0;
 	protected time: number = 0;
 
-	protected next_return: any;
+	protected next_return?: Generator.TNext<Iter>;
 
 	public done: boolean = true;
 	public iterator: Iter | null = null;
@@ -25,44 +28,39 @@ export class Evaluetor extends EventDispatcher {
 	public isTimeSync: boolean = true;
 	public readonly MIN_TIME: number = 1;
 
+	public code: string;
 	public env: any;
 	public ctx: any;
-	public api: Record<string, (this: any, ...args: any) =>  any>;
+	public source: () => string;
+	public handler: (dt: number, ...args: Generator.T<Iter>) => { time: number, data: Generator.TNext<Iter> };
+	public handler_start_yield: (data: Generator.TNext<Iter>) => any = () => {};
 
-	constructor(public code: string, public world: World, public unit: Unit) {
+	constructor({ code, ctx, env, source, handler, handler_start_yield }: {
+		code: string,
+		ctx: any,
+		env: object,
+		source: () => string,
+		handler: Evaluetor['handler']
+		handler_start_yield?: Evaluetor['handler_start_yield']
+	}) {
 		super();
 
-		this.api = {
-			scan: () => world.unitRadarScan(unit),
-			moveForward: () => world.moveForward(unit, 1),
-			turn: (dir: any) => unit.diration += Math.sign(dir)
-		};
-
-		this.ctx = {};
-
-		this.env = {
-			console,
-			...this.ctx,
-			*moveForward(c: number): Iter { for(let i = 0; i < c; i++) yield ['moveForward']; },
-			*scan(): Iter { return yield ['scan']; },
-			*moveTo(): Iter { yield ['moveTo']; },
-			*extract(): Iter { yield ['extract']; },
-			get cargo_filled() { return world.resources_cargo.get(unit)!.reduce((acc, value) => value.count + acc, 0); },
-			memory: {},
-			on() {},
-			set pub(v: any) {},
-			c: {
-				*run(gen: any, ...args: any) { yield* gen(...args); }
-			}
-		};
+		this.code = code;
+		this.ctx = ctx;
+		this.env = env;
+		this.source = source;
+		this.handler = handler;
+		if(handler_start_yield) this.handler_start_yield = handler_start_yield;
 	}
 
+	public throw(err: unknown) { this.iterator?.throw(err); }
+
 	public run(): this {
-		if(this.iterator || !this.done || this._isRunned) throw new Error('animation not completed');
+		if(this.iterator || !this.done || this._isRunned) throw new Error('evaluetor not completed');
 
 		try {
 			this.iterator = codeShell<() => () => Iter>(this.code, this.env, {
-				source: 'user/unit.js'
+				source: this.source()
 			}).call(this.ctx).call(this.ctx);
 		} catch(err) {
 			console.error(err);
@@ -73,9 +71,12 @@ export class Evaluetor extends EventDispatcher {
 		this._isRunned = true;
 
 		const { done, value } = this.iterator.next();
-		if(!done) this.time = 0;
-		// HACK: if(!done) this.time = value || 0;
-		else throw new Error('invalid animation');
+		if(!done) {
+			this.time = 0;
+			this.handler_start_yield(value);
+		} else throw new Error('invalid evaluetor');
+
+		this['@run'].emit();
 
 		return this;
 	}
@@ -109,17 +110,9 @@ export class Evaluetor extends EventDispatcher {
 				return;
 			}
 
-			const time = MOKE_TIME;
-			const [id, ctx, ...args] = value;
-			console.log({ id, ctx, args });
+			const { time, data } = this.handler(delta, ...value);
 
-			const fn = this.api[id];
-
-			if(fn) this.next_return = fn.apply(typeof ctx !== 'undefined' ? ctx : null, args);
-			else {
-				this.next_return = void 0;
-				console.error(`invalid request api (${id})`);
-			}
+			this.next_return = data;
 
 			this.dt -= this.time;
 			this.time = time;
@@ -129,9 +122,7 @@ export class Evaluetor extends EventDispatcher {
 
 				if(this.dt >= time) {
 					delta = 0;
-					// continue;
-					// HACK:
-					return;
+					continue;
 				}
 			} else this.dt = 0;
 
