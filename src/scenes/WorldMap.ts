@@ -28,10 +28,9 @@ export class WorldMap extends Node2D {
 	public height_map = generatePerlinNoise(W, H, {
 		seed: SEED_HEIGHT_MAP, amplitude: 0.1, octaveCount: 6, persistence: 0.5
 		// seed: 0x6147db, amplitude: 0.1, octaveCount: 7, persistence: 0.3
-	});
-	//.map(it => 1-Math.clamp(0, Math.round(it*20)/20, 1));
-	// }).map(it => Math.clamp(0, (it-0.5) * 6, 1));
-	// }).map(it => Math.clamp(0, (it+1) ** 2 - 1, 1));
+		// seed: 0x6147db, amplitude: 0.1, octaveCount: 5, persistence: 0.3
+	}).map(it => 0.4 < it && it < 0.6 ? it :
+		Math.clamp(0, it < 0.5 ? (1/2**1.5) * (2*it)**1 : (1/2**0.7) * (2*it)**1, 1));
 
 	public resources_map = generatePerlinNoise(W, H, {
 		seed: SEED_HEIGHT_MAP, amplitude: 0.5, octaveCount: 4, persistence: 0.7
@@ -52,10 +51,10 @@ export class WorldMap extends Node2D {
 	}
 
 	public drawCalls(pos: Vector2, { height, resource }: Record<string, number>, ctx: Context2D) {
-		// if(this.draw_mode === 'height') ctx.fillStyle = `hsl(${height*360} 100 50)`;
-		// else if(this.draw_mode === 'height+demp') ctx.fillStyle = `hsl(0 0 ${height*100})`;
-
-		if(this.draw_mode === 'height') ctx.fillStyle = `hsl(0 ${resource*100} ${height*100})`;
+		if(this.draw_mode === 'height') {
+			ctx.fillStyle = `hsl(30 50 ${height*100})`;
+			if(resource) ctx.fillStyle = `hsla(0 100 ${height*80} / ${resource})`;
+		}
 
 		ctx.fillRect(pos.x, pos.y, 1, 1);
 	}
@@ -78,7 +77,7 @@ export class WorldMap extends Node2D {
 		ctx.fillStyle = '#000000';
 		ctx.fillRect(-SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
 
-		ctx.globalAlpha = 0.2;
+		ctx.globalAlpha = 0.5;
 		ctx.drawImage(this.canvas_map.canvas, -SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
 		ctx.globalAlpha = 1;
 	}

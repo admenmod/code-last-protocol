@@ -1,17 +1,48 @@
 import { Event, EventDispatcher } from 'ver/events';
+import { Generator } from 'ver/helpers';
 import { codeShell } from 'ver/codeShell';
 
+import { CodeEnv, ScriptsSystem } from '@/ScriptsSystem';
+import { CODE } from './code';
+import { Unit } from '@/world/unit';
+import { Structure } from '@/world/structure';
 
-export declare namespace Generator {
-	export type T<T extends Generator<any, any, any>> = T extends Generator<infer R, any, any> ? R : never;
-	export type TReturn<T extends Generator<any, any, any>> = T extends Generator<any, infer R, any> ? R : never;
-	export type TNext<T extends Generator<any, any, any>> = T extends Generator<any, any, infer R> ? R : never;
+
+export const scripts_system = new ScriptsSystem();
+scripts_system.start();
+
+interface ICodeEnv {}
+
+type ICoroutin = (this: any, ...args: any) => Generator<any, any, any>;
+
+type IUnitCodeEntry = { __start__: 'Function' };
+export class Evaluetor<const T extends Unit | Structure> extends CodeEnv<T, ICodeEnv, typeof CODE, IUnitCodeEntry> {
+	constructor(ctx: T, env: ICodeEnv, source: string) {
+		super({ ctx, env: { ...env,
+			  coroutin: (coroutin: ICoroutin) => this.create_coroutin(coroutin)
+		}, args: { ...CODE }, entry: { __start__: 'Function' }, source });
+	}
+
+	public create_coroutin!: (coroutin: ICoroutin) => ReturnType<typeof scripts_system.coroutin>;
+
+	public override run(this: Evaluetor<T>, code: string) {
+		const symbol = Symbol(`unique symbol [${this.source}]`);
+		scripts_system.deleteCoroutins(symbol);
+		this.create_coroutin = coroutin => scripts_system.coroutin(symbol, coroutin);
+
+		const r = super.run(code);
+		const __start__ = this.entru_points.__start__;
+
+		if(!__start__) throw new Error('function "__start__" is not found');
+		__start__.apply(this.ctx);
+
+		return r;
+	}
 }
 
 
-export class Evaluetor<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
-	public '@run' = new Event<Evaluetor<Iter>, []>(this);
-
+class EvaluetorBAK<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
+	public '@run' = new Event<EvaluetorBAK<Iter>, []>(this);
 
 	protected _isRunned: boolean = false;
 	public isRunned() { return this._isRunned; }
@@ -40,8 +71,8 @@ export class Evaluetor<Iter extends Generator<any, any, any> = Generator<any, an
 		ctx: any,
 		env: object,
 		source: () => string,
-		handler: Evaluetor['handler']
-		handler_start_yield?: Evaluetor['handler_start_yield']
+		handler: EvaluetorBAK['handler']
+		handler_start_yield?: EvaluetorBAK['handler_start_yield']
 	}) {
 		super();
 
@@ -59,7 +90,7 @@ export class Evaluetor<Iter extends Generator<any, any, any> = Generator<any, an
 		if(this.iterator || !this.done || this._isRunned) throw new Error('evaluetor not completed');
 
 		try {
-			this.iterator = codeShell<() => () => Iter>(this.code, this.env, {
+			this.iterator = codeShell<() => () => Iter>(`__register__ = __start__; __register__ = null; ${this.code}`, this.env, {
 				source: this.source()
 			}).call(this.ctx).call(this.ctx);
 		} catch(err) {
@@ -107,6 +138,11 @@ export class Evaluetor<Iter extends Generator<any, any, any> = Generator<any, an
 
 			if(done) {
 				this.reset();
+				return;
+			}
+
+			if(value === null) {
+				this.next_return = void 0;
 				return;
 			}
 

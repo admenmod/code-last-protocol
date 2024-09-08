@@ -90,6 +90,8 @@ export class Cargo extends EventDispatcher {
 	}
 
 	public split(item: Cargo.Item, count: number) {
+		if(!Number.isInteger(count)) throw new Error('split count is not integer');
+
 		const l = this.#items.indexOf(item);
 		if(!~l) throw new Error('item is not found');
 

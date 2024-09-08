@@ -21,8 +21,6 @@ import { AudioContorller } from 'lib/AudioController';
 export const audioContorller = new AudioContorller();
 
 import { ka_main } from '@/keyboard';
-import { Resource } from '@/world/resource';
-import { UnitsL } from './UnitsL';
 import { Unit } from '@/world/unit';
 import { CELL_SIZE } from '@/config';
 
@@ -106,7 +104,7 @@ export class MainScene extends Control {
 	}
 
 	protected override _ready(this: MainScene): void {
-		this.$world.$strutcure.create(MainBase, new Vector2());
+		this.$world.$structures.create(MainBase, new Vector2());
 		const unit = this.$world.$units.create(Unit, new Vector2(0, 0));
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {
