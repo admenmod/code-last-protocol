@@ -18,8 +18,8 @@ export class UnitsL extends Node2D {
 
 	public create<const T extends new (...args: any) => Unit>(Class: T, ...args: Parameters<T>): InstanceType<T> {
 		const o = new Class(...args);
-		this.items.push(o);
 		this['@create'].emit(o);
+		this.items.push(o);
 		return o as InstanceType<T>;
 	}
 

@@ -16,8 +16,8 @@ export class StructuresL extends Node2D {
 
 	public create<const T extends new (...args: any) => Structure>(Class: T, ...args: Parameters<T>): InstanceType<T> {
 		const o = new Class(...args);
-		this.items.push(o);
 		this['@create'].emit(o);
+		this.items.push(o);
 		return o as InstanceType<T>;
 	}
 
@@ -46,4 +46,6 @@ export class StructuresL extends Node2D {
 			ctx.rotate(-rot);
 		}
 	}
+
+	public get [Symbol.toStringTag]() { return 'StructuresL'; }
 }

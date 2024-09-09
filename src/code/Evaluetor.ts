@@ -1,34 +1,55 @@
 import { Event, EventDispatcher } from 'ver/events';
-import { Generator } from 'ver/helpers';
+import { object as Object, Fn, Generator } from 'ver/helpers';
 import { codeShell } from 'ver/codeShell';
 
 import { CodeEnv, ScriptsSystem } from '@/ScriptsSystem';
 import { CODE } from './code';
-import { Unit } from '@/world/unit';
-import { Structure } from '@/world/structure';
 
-
-export const scripts_system = new ScriptsSystem();
-scripts_system.start();
 
 interface ICodeEnv {}
 
 type ICoroutin = (this: any, ...args: any) => Generator<any, any, any>;
 
 type IUnitCodeEntry = { __start__: 'Function' };
-export class Evaluetor<const T extends Unit | Structure> extends CodeEnv<T, ICodeEnv, typeof CODE, IUnitCodeEntry> {
-	constructor(ctx: T, env: ICodeEnv, source: string) {
-		super({ ctx, env: { ...env,
-			  coroutin: (coroutin: ICoroutin) => this.create_coroutin(coroutin)
-		}, args: { ...CODE }, entry: { __start__: 'Function' }, source });
+export class Evaluetor<ctx> extends CodeEnv<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry> {
+	public events: Record<string, Event> = Object.create(null);
+
+	constructor(public system: ScriptsSystem, ctx: ctx, env: ICodeEnv, source: string) {
+		const on = (id: string, fn: Fn, priority?: number, tag?: string | symbol, once?: boolean, shift?: boolean) => {
+			if(!(id in this.events)) this.events[id] = new Event(ctx);
+			return this.events[id].on(fn, priority, tag, once, shift);
+		};
+		const once = (id: string, fn: Fn, priority?: number, tag?: string | symbol, shift?: boolean) => {
+			return on(id, fn, priority, tag, true, shift);
+		};
+		const off = (id: string, fn?: Fn | string | symbol) => {
+			if(!(id in this.events)) return;
+			return this.events[id].off(fn as any);
+		};
+		const emit = (id: string, ...args: any) => {
+			if(!(id in this.events)) return;
+			return this.events[id].emit(...args);
+		};
+
+		super({ ctx, env: Object.fullassign({}, env, {
+			on, once, off, emit,
+			coroutin: (coroutin: ICoroutin) => this.create_coroutin(coroutin)
+		}), args: { ...CODE }, entry: { __start__: 'Function' }, source });
 	}
 
-	public create_coroutin!: (coroutin: ICoroutin) => ReturnType<typeof scripts_system.coroutin>;
+	public create_coroutin!: (coroutin: ICoroutin) => ReturnType<typeof this.system.coroutin>;
 
-	public override run(this: Evaluetor<T>, code: string) {
+	public override run(this: Evaluetor<ctx>, code: string) {
 		const symbol = Symbol(`unique symbol [${this.source}]`);
-		scripts_system.deleteCoroutins(symbol);
-		this.create_coroutin = coroutin => scripts_system.coroutin(symbol, coroutin);
+
+		for(const id in this.events) {
+			this.events[id].off();
+			delete this.events[id];
+		}
+
+		this.system.deleteCoroutins(symbol);
+
+		this.create_coroutin = coroutin => this.system.coroutin(this, symbol, coroutin);
 
 		const r = super.run(code);
 		const __start__ = this.entru_points.__start__;
@@ -41,7 +62,7 @@ export class Evaluetor<const T extends Unit | Structure> extends CodeEnv<T, ICod
 }
 
 
-class EvaluetorBAK<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
+export class EvaluetorBAK<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
 	public '@run' = new Event<EvaluetorBAK<Iter>, []>(this);
 
 	protected _isRunned: boolean = false;

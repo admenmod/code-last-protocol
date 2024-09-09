@@ -1,4 +1,4 @@
-import { function_constructors, Generator, getTypeFunction } from 'ver/helpers';
+import { object as Object, function_constructors, Generator, getTypeFunction } from 'ver/helpers';
 import { MainLoop } from 'ver/MainLoop';
 import { codeShell } from 'ver/codeShell';
 
@@ -43,7 +43,7 @@ export class CodeEnv<
 	public run(code: string): unknown {
 		this.code = code;
 
-		const env = Object.create({ ...this.env, Math, JSON, console });
+		const env = Object.create(Object.fullassign({}, this.env, { Math, JSON, console }));
 		Object.defineProperty(env, 'global', { value: env, writable: false, enumerable: false, configurable: false });
 		Object.defineProperty(env, REG_SETTER, {
 			set: (v: any) => {
@@ -55,31 +55,37 @@ export class CodeEnv<
 			}, enumerable: false, configurable: true
 		});
 
-		const entrys = Object.keys(this.entry).map(it => `global['${REG_SETTER}'] = ${it}; `).join('');
+		const entrys = (Object.keys(this.entry) as string[]).map(it => `global['${REG_SETTER}'] = ${it}; `).join('');
 		return codeShell(`${entrys}delete global['${REG_SETTER}']; ${code}`, env, {
 			arguments: Object.keys(this.args).join(', ')
 		}).apply(this.ctx, Object.values(this.args) as any);
 	}
+
+	public isActive: boolean = true;
 }
 
-
 export class ScriptsSystem extends MainLoop {
-	public coroutins: [token: symbol, coroutin: Coroutin][] = [];
+	public coroutins: [owner: CodeEnv<any, any, any, any>, token: symbol, coroutin: Coroutin][] = [];
 
-	constructor() {
+	constructor(public handler: Coroutin.handler<any>) {
 		super({ fps: 400 });
 
 		this['@update'].on(dt => {
-			for(let i = 0; i < this.coroutins.length; i++) this.coroutins[i][1].tick(dt);
+			for(let i = 0; i < this.coroutins.length; i++) {
+				if(this.coroutins[i][0].isActive) this.coroutins[i][2].tick(dt, this.handler);
+			}
 		});
 	}
 
-	public coroutin(token: symbol, coroutin: (this: any, ...args: any) => Generator<any, any, any>) {
-		const o = new Coroutin(coroutin);
+	public coroutin(
+		owner: CodeEnv<any, any, any, any>, token: symbol,
+		coroutin: (this: any, ...args: any) => Generator<any, any, any>
+	) {
+		const o = new Coroutin(owner, coroutin);
 
-		this.coroutins.push([token, o]);
+		this.coroutins.push([owner, token, o]);
 
-		const r = Object.assign(async function(this: any, ...args: any) { return o.generator.apply(this, args); }, {
+		const r = Object.assign(coroutin, {
 			run: (_this: any, ...args: any) => (o.run(_this, ...args), r),
 			isStart: () => o.isStart(),
 			isStop: () => o.isStop(),
@@ -98,7 +104,7 @@ export class ScriptsSystem extends MainLoop {
 	}
 
 	public deleteCoroutins(token: symbol) {
-		let l; while(~(l = this.coroutins.findIndex(([token_]) => token_ == token))) this.coroutins.splice(l, 1);
+		let l; while(~(l = this.coroutins.findIndex(([, token_]) => token_ == token))) this.coroutins.splice(l, 1);
 	}
 }
 

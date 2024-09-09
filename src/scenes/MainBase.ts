@@ -7,7 +7,7 @@ import { CELL_SIZE } from '@/config';
 
 export class MainBase extends Structure {
 	constructor(cell: Vector2) {
-		super('Main base', cell, new Vector2().set(4));
+		super(cell, new Vector2().set(4), 'Main base');
 	}
 
 	public override draw({ ctx }: Viewport, pos: Vector2): void {

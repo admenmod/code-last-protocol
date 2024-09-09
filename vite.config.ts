@@ -21,5 +21,7 @@ const host = (() => {
 
 export default defineConfig({
 	server: { host, port },
-	plugins: [tsconfigPaths(), preact({ include: ['**/*.[tj]sx'] }), VitePWA({ registerType: 'autoUpdate' })]
+	plugins: [tsconfigPaths(), preact({ include: ['**/*.[tj]sx'] }), VitePWA({ registerType: 'autoUpdate', workbox: {
+		cleanupOutdatedCaches: true
+	} })]
 });

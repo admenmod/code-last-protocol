@@ -1,13 +1,17 @@
 function __start__() {
 	main.run();
-	detect_enemy.run();
-}
-function __order__(order) {
-	c.break();
-	c.run(order);
+	// detect_enemy.run();
 }
 function __transfer__(req, reply) {
 	if(req.memory.role === 'transfer') return reply.allow();
+}
+function __order__(order) {
+	if(order === 'moveToBase') {
+		work.reset();
+		moveToBase.run();
+	}
+
+	return ERR_UNKNOWN_ORDER;
 }
 
 
@@ -21,6 +25,13 @@ on('enemy detected', async () => {
 	main.run();
 });
 
+
+const main = coroutin(function* main() {
+	yield; while(true) {
+		if(cargo_filled) yield* moveToBase();
+		else yield* searchAndExtractResource();
+	}
+});
 
 const moveToBase = coroutin(function* () {
 	yield* moveTo(memory.base_position);
@@ -36,17 +47,11 @@ const detect_enemy = coroutin(function* () {
 	}
 });
 
-const main = coroutin(function* main() {
-	yield; while(true) {
-		if(cargo_filled) yield* moveToBase();
-		else yield* searchAndExtractResource();
-	}
-});
+const searchAndExtractResource = coroutin(function* () {
+	yield;
 
-
-function* searchAndExtractResource() {
 	const data = yield* scan();
-	const resource = data.find(it => it.values.resource > 0);
+	const resource = data.find(it => it.type === 'cell' && it.values.resource > 0);
 
 	if(!resource) {
 		if(Math.random() < 0.2) yield* turn(1);
@@ -61,4 +66,4 @@ function* searchAndExtractResource() {
 			else break;
 		}
 	}
-}
+});

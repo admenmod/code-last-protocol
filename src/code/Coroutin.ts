@@ -2,6 +2,11 @@ import { Event, EventDispatcher } from 'ver/events';
 import { Generator } from 'ver/helpers';
 
 
+export declare namespace Coroutin {
+	export type handler<T> = (owner: unknown, dt: number, time: number, value: any) => {
+		time: number | null | void, data: T
+	};
+}
 export class Coroutin<This = any,
 	const Args extends any[] = any[],
 	const Iter extends Generator<any, any, any> = Generator<any, any, any>
@@ -31,10 +36,9 @@ export class Coroutin<This = any,
 	public readonly MIN_TIME: number = Coroutin.MIN_TIME;
 
 	public iterator: Iter | null = null;
+	private next_return!: Generator.TNext<Iter>;
 
-	constructor(public generator: (this: This, ...args: Args) => Iter) {
-		super();
-	}
+	constructor(public owner: unknown, public generator: (this: This, ...args: Args) => Iter) { super(); }
 
 	public throw(err: unknown) { return this.iterator?.throw(err); }
 	public return(value: Generator.TReturn<Iter>) { return this.iterator?.return(value); }
@@ -91,7 +95,7 @@ export class Coroutin<This = any,
 		return this;
 	}
 
-	public tick(dt: number): void {
+	public tick(dt: number, handler: Coroutin.handler<Generator.TNext<Iter>>): void {
 		if(!this.iterator || this.done || !this._isStart) return;
 
 		this.dt += dt;
@@ -100,7 +104,7 @@ export class Coroutin<This = any,
 		let delta = dt;
 
 		while(true) {
-			const { done, value } = this.iterator.next(delta);
+			const { done, value } = this.iterator.next(this.next_return);
 
 			if(done) {
 				this['@tick'].emit();
@@ -112,15 +116,20 @@ export class Coroutin<This = any,
 				return;
 			}
 
-			if(value === null) return;
+			console.log({ delta, time: this.time });
+			const { time, data } = handler(this.owner, delta, this.time, value);
+			this.next_return = data;
+
+			if(time === null) return;
+			if(typeof time === 'undefined') continue;
 
 			this.dt -= this.time;
-			this.time = value;
+			this.time = time;
 
 			if(this.isTimeSync) {
-				if(value < 0 || value < this.MIN_TIME) throw new Error('The time cannot be zero or less MIN_TIME');
+				if(time < 0 || time < this.MIN_TIME) throw new Error('The time cannot be zero or less MIN_TIME');
 
-				if(this.dt >= value) {
+				if(this.dt >= time) {
 					delta = 0;
 					continue;
 				}
