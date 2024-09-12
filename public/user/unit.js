@@ -1,55 +1,62 @@
+/*  NOTE:
+ * базовые конструкции - entry_points, события, сценарии
+ * происходит какое то событие -> запускается сценари[йи]
+ * скрипты могут быть цикличными, скрипт проверяет данные -> вызывает событие
+*/
+
+if(!memory.base_position) memory.base_position = new Vector2();
+
+// ENTRY_POINTS //
 function __start__() {
-	main.run();
-	// detect_enemy.run();
+	script.mono(main).run();
+	script.mono(detectEnemy).run();
 }
 function __transfer__(req, reply) {
 	if(req.memory.role === 'transfer') return reply.allow();
 }
 function __order__(order) {
 	if(order === 'moveToBase') {
-		work.reset();
-		moveToBase.run();
+		script.mono(main).reset();
+		script.mono(moveToBase).run();
 	}
 
 	return ERR_UNKNOWN_ORDER;
 }
 
-
+// CUSTOM_EVENTS //
 on('enemy detected', async () => {
-	detect_enemy.stop();
-	main.reset();
+	script.mono(main).reset();
+	script.mono(detectEnemy).stop();
 
-	await moveToBase.run();
+	await script.mono(moveToBase).run();
 
-	detect_enemy.start();
-	main.run();
+	script.mono(main).run();
+	script.mono(detectEnemy).start();
 });
 
-
-const main = coroutin(function* main() {
-	yield; while(true) {
+// CUSTOM_SCRIPTS //
+function* main() {
+	while(true) {
 		if(cargo_filled) yield* moveToBase();
 		else yield* searchAndExtractResource();
 	}
-});
+}
 
-const moveToBase = coroutin(function* () {
+function* moveToBase() {
 	yield* moveTo(memory.base_position);
 	yield* transfer(base_position, ALL);
-});
+}
 
-const detect_enemy = coroutin(function* () {
-	yield; while(true) {
+function* detectEnemy() {
+	while(true) {
 		const data = yield *scan();
 		const enemys = data.filter(it => it.type === 'unit' && it.team === 'enemy');
 
 		if(enemys.length !== 0) return emit('enemy detected');
 	}
-});
+}
 
-const searchAndExtractResource = coroutin(function* () {
-	yield;
-
+function* searchAndExtractResource() {
 	const data = yield* scan();
 	const resource = data.find(it => it.type === 'cell' && it.values.resource > 0);
 
@@ -57,7 +64,7 @@ const searchAndExtractResource = coroutin(function* () {
 		if(Math.random() < 0.2) yield* turn(1);
 		else if(Math.random() < 0.2) yield* turn(-1);
 
-		if(!(yield* moveForward(3))) yield* turn(1);
+		if(ERR_BIG_DIFF_HEIGHT === (yield* moveForward(3))) yield* turn(1);
 	} else {
 		yield* moveTo(resource.pos);
 
@@ -66,4 +73,4 @@ const searchAndExtractResource = coroutin(function* () {
 			else break;
 		}
 	}
-});
+}

@@ -1,3 +1,4 @@
+// NOTE: legosy
 function __start__() {
 	;
 }

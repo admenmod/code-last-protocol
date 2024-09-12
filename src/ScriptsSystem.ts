@@ -1,34 +1,205 @@
-import { object as Object, function_constructors, Generator, getTypeFunction } from 'ver/helpers';
-import { MainLoop } from 'ver/MainLoop';
+import { Vector2 } from 'ver/Vector2';
+import { Event, EventDispatcher } from 'ver/events';
 import { codeShell } from 'ver/codeShell';
+import {
+	object as Object,
+	math as Math,
+	function_constructors,
+	Generator,
+	getTypeFunction
+} from 'ver/helpers';
 
-import { Coroutin } from './code/Coroutin';
+import { Executor } from './code/Executor';
 
-type RecFns = {
+type rec_fns = {
 	Function: (this: any, ...args: any) => any;
 	AsyncFunction: (this: any, ...args: any) => Promise<any>;
 	GeneratorFunction: (this: any, ...args: any) => Generator<any, any, any>;
 	AsyncGeneratorFunction: (this: any, ...args: any) => AsyncGenerator<any, any, any>;
 };
 type entru_points<T extends Record<string, keyof typeof function_constructors>> = {
-	[K in keyof T]: RecFns[T[K]];
+	[K in keyof T]: rec_fns[T[K]];
+};
+
+export interface IScript {
+	(this: any, ...args: any): Generator<any, any, any>;
+}
+export interface IScriptAPI<This, Args extends any[], R> {
+	run(_this: This, ...args: Args): this;
+	reset(value: R): this;
+	isStart(): boolean;
+	isStop(): boolean;
+	start(): boolean;
+	stop(): boolean;
+	toggle(f?: boolean): boolean;
+	// throw(err: unknown);
+	// return(value: R);
+	// then: (...args: any) => o.then(...args),
+	// catch: (...args: any) => o.catch(...args),
+	// finally: (...args: any) => o.finally(...args)
 };
 
 
-const REG_SETTER = 'r e g i s t e r';
+export declare namespace Script {
+	export type handler<T> = (owner: unknown, dt: number, time: number, value: any) => {
+		time: number | null | void, data: T
+	};
+}
+export class Script<This = any,
+	const Args extends any[] = any[],
+	const Iter extends Generator<any, any, any> = Generator<any, any, any>
+> extends EventDispatcher implements Promise<Generator.TReturn<Iter>> {
+	public '@start' = new Event<Script<This, Args, Iter>, []>(this);
+	public '@stop' = new Event<Script<This, Args, Iter>, []>(this);
+	public '@done' = new Event<Script<This, Args, Iter>, [value: Generator.TReturn<Iter>]>(this);
+	public '@run' = new Event<Script<This, Args, Iter>, Args>(this);
+	public '@reset' = new Event<Script<This, Args, Iter>, []>(this);
 
-export class CodeEnv<
+	public done: boolean = true;
+
+	protected _isStart: boolean = false;
+	public isStart() { return this._isStart; }
+	public isStop() { return !this._isStart; }
+
+	public iterator: Iter | null = null;
+	public out_data!: Generator.TNext<Iter> | void;
+
+	constructor(public generator: (this: This, ...args: Args) => Iter) { super(); }
+
+	public next(value: Generator.TNext<Iter>) { return this.iterator!.next(value); }
+	public throw(err: unknown) { return this.iterator!.throw(err); }
+	public return(value: Generator.TReturn<Iter>) { return this.iterator!.return(value); }
+
+	public start(): boolean {
+		if(this._isStart) return false;
+		this._isStart = true;
+
+		this['@start'].emit();
+
+		return true;
+	}
+	public stop(): boolean {
+		if(!this._isStart) return false;
+		this._isStart = false;
+		this['@stop'].emit();
+
+		return true;
+	}
+	public toggle(force?: boolean): void {
+		if(typeof force === 'undefined') this._isStart ? this.stop() : this.start();
+		else this._isStart === !force ? this.stop() : this.start();
+	}
+
+	public run(_this: This, ...args: Args): this {
+		if(this.iterator || !this.done) throw new Error('Script not completed');
+
+		this.iterator = this.generator.apply(_this, args);
+
+		this.done = false;
+		this._isStart = true;
+
+		this['@run'].emit(...args);
+
+		return this;
+	}
+
+	public reset(value: Generator.TReturn<Iter>): this {
+		if(!this.iterator) return this;
+
+		this.iterator.return(value);
+		this.iterator = null;
+
+		this.done = true;
+		this._isStart = false;
+
+		this['@reset'].emit();
+
+		return this;
+	}
+
+	// public tick(dt: number, handler: Script.handler<Generator.TNext<Iter>>): void {
+	// 	if(!this.iterator || this.done || !this._isStart) return;
+	//
+	// 	this.dt += dt;
+	// 	if(this.dt < this.time) return;
+	//
+	// 	let delta = dt;
+	//
+	// 	while(true) {
+	// 		const { done, value } = this.iterator.next(this.next_return);
+	//
+	// 		if(done) {
+	// 			this['@tick'].emit();
+	//
+	// 			this._numberOfPlayed++;
+	// 			this['@done'].emit(value);
+	//
+	// 			this.reset(value);
+	// 			return;
+	// 		}
+	//
+	// 		console.log({ delta, time: this.time });
+	// 		const { time, data } = handler(this.owner, delta, this.time, value);
+	// 		this.next_return = data;
+	//
+	// 		if(time === null) return;
+	// 		if(typeof time === 'undefined') continue;
+	//
+	// 		this.dt -= this.time;
+	// 		this.time = time;
+	//
+	// 		if(this.isTimeSync) {
+	// 			if(time < 0 || time < this.MIN_TIME) throw new Error('The time cannot be zero or less MIN_TIME');
+	//
+	// 			if(this.dt >= time) {
+	// 				delta = 0;
+	// 				continue;
+	// 			}
+	// 		} else this.dt = 0;
+	//
+	// 		this['@tick'].emit();
+	//
+	// 		return;
+	// 	}
+	// }
+
+
+	public then<T1 extends Generator.TReturn<Iter> = Generator.TReturn<Iter>, T2 = never>(
+		onfulfilled?: ((value: T1) => T1 | PromiseLike<T1>) | null | undefined,
+		onrejected?: ((reason: any) => T2 | PromiseLike<T2>) | null | undefined
+	): Promise<T1 | T2> {
+		if(!this.iterator || this.done) return (Promise.resolve() as Promise<T1>).then(onfulfilled, onrejected);
+		return new Promise<T1>(res => this['@done'].once(value => res(value))).then(onfulfilled, onrejected);
+	}
+
+	public catch<T = never>(
+		onrejected?: ((reason: any) => T | PromiseLike<T>) | null | undefined
+	): Promise<Generator.TReturn<Iter> | T> {
+		if(!this.iterator || this.done) return Promise.resolve().then(null, onrejected);
+		return new Promise(res => this['@done'].once(value => res(value))).then(null, onrejected);
+	}
+
+	public finally(onfinally?: (() => void) | null | undefined): Promise<Generator.TReturn<Iter>> {
+		const h = (value: any) => (onfinally?.(), value);
+		if(!this.iterator || this.done) return Promise.resolve().then(h, h);
+		return new Promise(res => this['@done'].once(value => res(value))).then(h, h);
+	}
+}
+
+
+export class CodeSpace<
 	const ctx extends any,
 	const env extends Record<string, any>,
 	const args extends Record<string, any>,
 	const entry extends Record<string, keyof typeof function_constructors>,
 	const source extends string = string
 > {
-	public ctx: ctx;
-	public env: env;
-	public args: args;
-	public entry: entry;
-	public source: source;
+	public isActive: boolean = true;
+
+	public code: string = '';
+	public entru_points: entru_points<entry> = {} as any;
+
+	public ctx: ctx; public env: env; public args: args; public entry: entry; public source: source;
 
 	constructor({ ctx, env, args, entry, source }: { ctx: ctx, env: env, args: args, entry: entry, source: source }) {
 		this.ctx = ctx;
@@ -38,14 +209,17 @@ export class CodeEnv<
 		this.source = source;
 	}
 
-	public code: string = '';
-	public entru_points: entru_points<entry> = {} as any;
 	public run(code: string): unknown {
 		this.code = code;
 
-		const env = Object.create(Object.fullassign({}, this.env, { Math, JSON, console }));
+		const _Vector2 = eval(Vector2.toString());
+		const env = Object.create(Object.fullassign({}, this.env, {
+			Vector2: _Vector2,
+			Math, JSON, console,
+			Object, String, Number, Boolean, BigInt
+		}));
 		Object.defineProperty(env, 'global', { value: env, writable: false, enumerable: false, configurable: false });
-		Object.defineProperty(env, REG_SETTER, {
+		Object.defineProperty(env, CodeSpace.REG_SETTER, {
 			set: (v: any) => {
 				if(typeof v === 'function') {
 					if(v.constructor === function_constructors[this.entry[v.name]]) {
@@ -55,37 +229,31 @@ export class CodeEnv<
 			}, enumerable: false, configurable: true
 		});
 
-		const entrys = (Object.keys(this.entry) as string[]).map(it => `global['${REG_SETTER}'] = ${it}; `).join('');
-		return codeShell(`${entrys}delete global['${REG_SETTER}']; ${code}`, env, {
+		const entrys = (Object.keys(this.entry) as string[]).map(it => `global['${CodeSpace.REG_SETTER}'] = ${it}; `).join('');
+		return codeShell(`${entrys}delete global['${CodeSpace.REG_SETTER}']; ${code}`, env, {
 			arguments: Object.keys(this.args).join(', ')
 		}).apply(this.ctx, Object.values(this.args) as any);
 	}
 
-	public isActive: boolean = true;
+
+	public static readonly REG_SETTER = 'r e g i s t e r';
 }
 
-export class ScriptsSystem extends MainLoop {
-	public coroutins: [owner: CodeEnv<any, any, any, any>, token: symbol, coroutin: Coroutin][] = [];
 
-	constructor(public handler: Coroutin.handler<any>) {
-		super({ fps: 400 });
+export class ScriptsSystem<const T extends Record<string, Executor>> extends EventDispatcher {
+	public scripts: [owner: CodeSpace<any, any, any, any>, token: symbol, script: Script][] = [];
 
-		this['@update'].on(dt => {
-			for(let i = 0; i < this.coroutins.length; i++) {
-				if(this.coroutins[i][0].isActive) this.coroutins[i][2].tick(dt, this.handler);
-			}
-		});
-	}
+	constructor(public executors: T) { super(); }
 
-	public coroutin(
-		owner: CodeEnv<any, any, any, any>, token: symbol,
-		coroutin: (this: any, ...args: any) => Generator<any, any, any>
+	public create_script(
+		owner: CodeSpace<any, any, any, any>, token: symbol,
+		script: (this: any, ...args: any) => Generator<any, any, any>
 	) {
-		const o = new Coroutin(owner, coroutin);
+		const o = new Script(script);
 
-		this.coroutins.push([owner, token, o]);
+		this.scripts.push([owner, token, o]);
 
-		const r = Object.assign(coroutin, {
+		const r = Object.assign(script, {
 			run: (_this: any, ...args: any) => (o.run(_this, ...args), r),
 			isStart: () => o.isStart(),
 			isStop: () => o.isStop(),
@@ -100,75 +268,25 @@ export class ScriptsSystem extends MainLoop {
 			finally: (...args: any) => o.finally(...args)
 		});
 
+		;
+
 		return r;
 	}
+	public clear_scripts(token: symbol) {
+		let l; while(~(l = this.scripts.findIndex(([, token_]) => token_ == token))) this.scripts.splice(l, 1);
+	}
 
-	public deleteCoroutins(token: symbol) {
-		let l; while(~(l = this.coroutins.findIndex(([, token_]) => token_ == token))) this.coroutins.splice(l, 1);
+	public handler(value: any): any {
+		return;
+	}
+
+	public update(dt: number): void {
+		for(const [owner, _, script] of this.scripts) {
+			if(!owner.isActive || !script.iterator || script.isStop()) return;
+
+			const { done, value } = script.next(script.out_data);
+			if(done) { script.reset(value); continue; }
+			script.out_data = this.handler(value);
+		}
 	}
 }
-
-
-// export class Coroutin<Iter extends Generator<any, any, any> = Generator<any, any, any>> {
-// 	#iterator: Iter;
-//
-// 	#isRunned: boolean = true;
-// 	public isRunned() { return this.#isRunned; }
-// 	public isStoped() { return !this.#isRunned; }
-//
-// 	#dt: number = 0;
-// 	#time: number = 0;
-//
-// 	#next_return?: Generator.TNext<Iter>;
-//
-// 	#done: boolean = false;
-// 	public get done() { return this.#done; }
-//
-// 	public isTimeSync: boolean = true;
-// 	public readonly MIN_TIME: number = 1;
-//
-// 	constructor(iterator: Iter, public handler: (...args: any) => { time: number, data: any }) {
-// 		this.#iterator = iterator;
-// 	}
-//
-// 	public next(value: Generator.TNext<Iter>) { return this.#iterator.next(value); }
-// 	public return(value: Generator.TReturn<Iter>) { return this.#iterator.return(value); }
-// 	public throw(err: unknown) { return this.#iterator.throw(err); }
-//
-// 	public tick(dt: number): void {
-// 		if(this.#done || !this.#isRunned) return;
-//
-// 		this.#dt += dt;
-// 		if(this.#dt < this.#time) return;
-//
-// 		let delta = dt;
-//
-// 		while(true) {
-// 			const { done, value } = this.#iterator.next(this.#next_return);
-//
-// 			if(done) {
-// 				this.#done = true;
-// 				this.#isRunned = false;
-// 				return;
-// 			}
-//
-// 			const { time, data } = this.handler(delta, ...value);
-//
-// 			this.#next_return = data;
-//
-// 			this.#dt -= this.#time;
-// 			this.#time = time;
-//
-// 			if(this.isTimeSync) {
-// 				if(time < 0 || time < this.MIN_TIME) throw new Error('The time cannot be zero or less MIN_TIME');
-//
-// 				if(this.#dt >= time) {
-// 					delta = 0;
-// 					continue;
-// 				}
-// 			} else this.#dt = 0;
-//
-// 			return;
-// 		}
-// 	}
-// }

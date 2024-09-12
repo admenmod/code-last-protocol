@@ -14,12 +14,12 @@ import { dirToVec2 } from '@/utils/cell';
 import { CODE } from '@/code/code';
 import { CELL_SIZE } from '@/config';
 import { ka_main } from '@/keyboard';
-import { Cargo } from '@/world/cargo';
-import { Unit } from '@/world/unit';
+import { ENV_UNIT, Unit } from '@/world/unit';
 import { Structure } from '@/world/structure';
-import { ScriptsSystem } from '@/ScriptsSystem';
+// import { ScriptsSystem } from '@/ScriptsSystem';
 import { Evaluetor } from '@/code/Evaluetor';
-import { WorldObject } from '@/world/WorldObject';
+import { Entity } from '@/world/Entity';
+import type { Cargo } from '@/world/cargo';
 
 export type IScanData = {
 	pos: Vector2;
@@ -27,69 +27,24 @@ export type IScanData = {
 	values: Record<string, number>;
 }[];
 
-type Iter = Generator<[string, ...any[]], any, any>;
 
-
-const TIME = 1000;
-
-const API_UNIT = {
-	scan: (world: World, unit: Unit) => ({ time: TIME, data: world.unitRadarScan(unit) }),
-	moveTo: (world: World, unit: Unit, pos: Vector2) => ({ time: TIME, data: world.moveTo(unit, pos, 1) }),
-	moveForward: (world: World, unit: Unit) => ({ time: TIME, data: world.moveForward(unit, 1) }),
-	turn: (_world: World, unit: Unit, dir: any) => ({ time: TIME, data: unit.diration += Math.sign(dir) }),
-	extract: (world: World, unit: Unit) => ({ time: TIME, data: world.unitExtract(unit, Vector2.ZERO) }),
-	transfer: (world: World, unit: Unit, target: Vector2) => ({ time: TIME, data: world.transfer(unit, target) })
-};
-
-const ENV_UNIT = (world: World, unit: Unit) => ({
-	memory: { base_position: new Vector2(0, 0) },
-	*turn(dir: number): Iter { yield ['turn', null, dir]; },
-	*scan(): Iter { return yield ['scan']; },
-	*moveForward(c: number): Iter {
-		for(let i = 0; i < c; i++) if(!(yield ['moveForward'])) return false;
-		return true;
-	},
-	*moveTo(target?: Vector2, steps: number = Math.INF): Iter {
-		if(!target) throw new Error('"moveTo" invalid argumnets '+String(target));
-		if(unit.cell.isSame(target)) return false;
-
-		for(let i = 0; i < steps; i++) {
-			if(yield ['moveTo', null, target.new()]) continue;
-			return false;
-		}
-	},
-	*extract(): Iter { return yield ['extract']; },
-	*transfer(target?: Vector2): Iter {
-		if(!target) throw new Error('"transfer" invalid argumnets '+String(target));
-		return yield ['transfer', null, target.new()];
-	},
-	get cargo_filled() { return world.resources_cargo.get(unit)!.fullness_normaloze > 0.9; },
-	get diration() { return unit.diration; },
-	getForwardCell(unit?: Unit, data?: IScanData) {
-		if(typeof unit === 'undefined' || typeof data === 'undefined') throw new Error('"getForwardCell" invalid argumnets');
-
-		return data.find(it => it.pos.isSame(dirToVec2(unit.diration).add(unit.cell)));
-	}
-});
-
-
-const API_STRUCTURE = {
-	scan: (world: World, structure: Structure) => ({ time: TIME, data: world.structureRadarScan(structure) }),
-	extract: (world: World, structure: Structure) => ({ time: TIME, data: world.structureExtract(structure) }),
-	transfer: (world: World, structure: Structure, target: Vector2) => ({ time: TIME, data: world.transfer(structure, target) })
-};
-
-const ENV_STRUCTURE = (world: World, structure: Structure) => ({
-	memory: { base_position: new Vector2(0, 0) },
-	*scan(): Iter { return yield ['scan']; },
-	*extract(): Iter { return yield ['extract']; },
-	*transfer(target?: Vector2): Iter {
-		if(!target) throw new Error('"transfer" invalid argumnets '+String(target));
-		return yield ['transfer', null, target.new()];
-	},
-	get cargo_filled() { return world.resources_cargo.get(structure)!.fullness_normaloze > 0.9; },
-	get diration() { return structure.diration; }
-});
+// const API_STRUCTURE = (world: World, structure: Structure) => ({
+// 	scan: () => ({ time: TIME, data: world.structureRadarScan(structure) }),
+// 	extract: () => ({ time: TIME, data: world.structureExtract(structure) }),
+// 	transfer: (target: Vector2) => ({ time: TIME, data: world.transfer(structure, target) })
+// });
+//
+// const ENV_STRUCTURE = (world: World, structure: Structure) => ({
+// 	memory: { base_position: new Vector2(0, 0) },
+// 	*scan(): Iter { return yield ['scan']; },
+// 	*extract(): Iter { return yield ['extract']; },
+// 	*transfer(target?: Vector2): Iter {
+// 		if(!target) throw new Error('"transfer" invalid argumnets '+String(target));
+// 		return yield ['transfer', target.new()];
+// 	},
+// 	get cargo_filled() { return world.resources_cargo.get(structure)!.fullness_normaloze > 0.9; },
+// 	get diration() { return structure.diration; }
+// });
 
 
 export class World extends Node {
@@ -131,12 +86,12 @@ export class World extends Node {
 
 		if(Math.abs(this.$map.height_map[UCI] - this.$map.height_map[TCI]) > 0.1) return CODE.ERR_BIG_DIFF_HEIGHT;
 
-		return CODE.OK;
+		return;
 	}
 	public move(unit: Unit, rpos: Vector2) {
 		const code = this.hasMoveToPos(unit, rpos);
 
-		if(code === CODE.OK) unit.cell.add(rpos);
+		if(typeof code !== 'symbol') unit.cell.add(rpos);
 
 		return code;
 	}
@@ -219,12 +174,11 @@ export class World extends Node {
 		return items;
 	}
 
-	public resources_cargo = new WeakMap<Unit | Structure, Cargo>();
 	public unitExtract(unit: Unit, rpos: Vector2) {
 		const items = this.extract(unit.cell.new().add(rpos), this.getUnitHeight(unit), 1);
 		if(typeof items === 'symbol') return items;
 
-		const cargo = this.resources_cargo.get(unit)!;
+		const cargo = unit.cargo;
 
 		const { allowed, error } = cargo.spawn(...items);
 
@@ -240,7 +194,7 @@ export class World extends Node {
 		const items = this.extract(structure.cell.new(), this.getStructureHeight(structure), 10);
 		if(typeof items === 'symbol') return items;
 
-		const cargo = this.resources_cargo.get(structure)!;
+		const cargo = structure.cargo;
 
 		const { allowed, error } = cargo.spawn(...items);
 
@@ -250,32 +204,30 @@ export class World extends Node {
 	}
 
 
-	public evaluetors = new WeakMap<Evaluetor<any>, WorldObject>();
+	public evaluetors = new WeakMap<Evaluetor<any>, Entity>();
 
-	public scripts_system = new ScriptsSystem((owner, dt, _time, value) => {
-		if(value === null) return { time: null, data: null };
-		if(typeof value === 'undefined') return { time: void 0, data: void 0 };
-		if(!Array.isArray(value)) throw new Error('invalid request');
-
-		const [id, ctx, ...args] = value;
-		console.group({ dt, id, ctx, args });
-
-		const obj = this.evaluetors.get(owner as Evaluetor<any>)!;
-
-		if(obj instanceof Unit) {
-			if(id in API_UNIT) {
-				const data = (API_UNIT as any)[id].call(typeof ctx !== 'undefined' ? ctx : null, this, obj, ...args);
-				console.groupEnd();
-				return data;
-			} throw new Error(`invalid request api[${id}]`);
-		} else if(obj instanceof Structure) {
-			if(id in API_STRUCTURE) {
-				const data = (API_STRUCTURE as any)[id].call(typeof ctx !== 'undefined' ? ctx : null, this, obj, ...args);
-				console.groupEnd();
-				return data;
-			} throw new Error(`invalid request api[${id}]`);
-		} else throw new Error('unknown request owner');
-	});
+	// public scripts_system = new ScriptsSystem((owner, dt, _time, value) => {
+	// 	if(value === null) return { time: null, data: null };
+	// 	if(typeof value === 'undefined') return { time: void 0, data: void 0 };
+	// 	if(!Array.isArray(value)) throw new Error('invalid request');
+	//
+	// 	const [id, ctx, ...args] = value;
+	// 	console.group({ dt, id, ctx, args });
+	//
+	// 	const obj = this.evaluetors.get(owner as Evaluetor<any>)!;
+	//
+	// 	if(obj instanceof Unit) {
+	// 		if(!(id in obj.API)) throw new Error(`unknown request "${id}"`);
+	// 		const data = (obj.API as any)[id](this, obj, id, ...args);
+	// 		console.groupEnd();
+	// 		return data;
+	// 	} else if(obj instanceof Structure) {
+	// 		// const data = API_STRUCTURE(this, obj)[id](...args);
+	// 		// console.groupEnd();
+	// 		// return data;
+	// 		throw new Error('work');
+	// 	} else throw new Error('unknown request owner');
+	// });
 
 
 	// TODO: сделать items на землю
@@ -297,8 +249,8 @@ export class World extends Node {
 
 		if(!b) return CODE.ERR_TARGET_NOT_FOUND;
 
-		const cargo_ = this.resources_cargo.get(a)!;
-		const _cargo = this.resources_cargo.get(b)!;
+		const cargo_ = a.cargo;
+		const _cargo = b.cargo;
 
 		return cargo_.transfer(_cargo, () => true);
 	}
@@ -342,19 +294,20 @@ export class World extends Node {
 		});
 
 		this.on('ResourcesExtract:unit', (_allowed, _error, unit) => {
-			alert(JSON.stringify(this.resources_cargo.get(unit)!, null, '  '));
+			alert(JSON.stringify(unit.cargo, null, '  '));
 		});
 
 
 		const code_unit = await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
-		const code_structure = await fetch(`${location.origin}/user/structure.js`).then(data => data.text());
+		// const code_structure = await fetch(`${location.origin}/user/structure.js`).then(data => data.text());
 
 		this.$units.on('create', unit => {
 			this.radar_scan_data.set(unit, []);
-			this.resources_cargo.set(unit, new Cargo(unit.copasity));
 
-			const env = Object.fullassign({}, ENV_UNIT(this, unit));
-			const evaluetor = new Evaluetor(this.scripts_system, {}, env, 'user/unit,js');
+			const env = Object.fullassign({}, ENV_UNIT(this, unit), {
+				memory: Object.create(null),
+			});
+			const evaluetor = new Evaluetor(unit, {}, env, 'user/unit,js');
 			this.evaluetors.set(evaluetor, unit);
 
 			evaluetor.run(code_unit);
@@ -362,15 +315,14 @@ export class World extends Node {
 
 		this.$structures.on('create', structure => {
 			this.radar_scan_data.set(structure, []);
-			this.resources_cargo.set(structure, new Cargo(structure.copasity));
 
-			const env = Object.fullassign({}, ENV_STRUCTURE(this, structure));
-			const evaluetor = new Evaluetor(this.scripts_system, {}, env, 'user/structure,js');
-			this.evaluetors.set(evaluetor, structure);
-
-			evaluetor.run(code_structure);
+			// const env = Object.fullassign({}, ENV_STRUCTURE(this, structure));
+			// const evaluetor = new Evaluetor(this.scripts_system, {}, env, 'user/structure,js');
+			// this.evaluetors.set(evaluetor, structure);
+			//
+			// evaluetor.run(code_structure);
 		});
 
-		this.scripts_system.start();
+		// this.scripts_system.start();
 	}
 }

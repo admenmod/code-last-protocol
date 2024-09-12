@@ -1,20 +1,23 @@
-import { Event, EventDispatcher } from 'ver/events';
-import { object as Object, Fn, Generator } from 'ver/helpers';
-import { codeShell } from 'ver/codeShell';
+import { Event } from 'ver/events';
+import { object as Object, Fn } from 'ver/helpers';
 
-import { CodeEnv, ScriptsSystem } from '@/ScriptsSystem';
+import { CodeSpace, IScript, ScriptsSystem } from '@/ScriptsSystem';
 import { CODE } from './code';
 
 
 interface ICodeEnv {}
 
-type ICoroutin = (this: any, ...args: any) => Generator<any, any, any>;
-
 type IUnitCodeEntry = { __start__: 'Function' };
-export class Evaluetor<ctx> extends CodeEnv<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry> {
+export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry> {
 	public events: Record<string, Event> = Object.create(null);
 
-	constructor(public system: ScriptsSystem, ctx: ctx, env: ICodeEnv, source: string) {
+	constructor(public scripts_system: ScriptsSystem, ctx: ctx, _env: ICodeEnv, source: string) {
+		const scripts = new WeakMap<IScript, ReturnType<typeof scripts_system.create_script>>;
+
+		const script = Object.assign((script: IScript) => this.create_script(script), {
+			mono: (s: IScript) => scripts.get(s)
+		});
+
 		const on = (id: string, fn: Fn, priority?: number, tag?: string | symbol, once?: boolean, shift?: boolean) => {
 			if(!(id in this.events)) this.events[id] = new Event(ctx);
 			return this.events[id].on(fn, priority, tag, once, shift);
@@ -31,13 +34,15 @@ export class Evaluetor<ctx> extends CodeEnv<ctx, ICodeEnv, typeof CODE, IUnitCod
 			return this.events[id].emit(...args);
 		};
 
-		super({ ctx, env: Object.fullassign({}, env, {
+		const env = Object.fullassign({}, _env, {
 			on, once, off, emit,
-			coroutin: (coroutin: ICoroutin) => this.create_coroutin(coroutin)
-		}), args: { ...CODE }, entry: { __start__: 'Function' }, source });
+			script
+		});
+
+		super({ ctx, env, args: { ...CODE }, entry: { __start__: 'Function' }, source });
 	}
 
-	public create_coroutin!: (coroutin: ICoroutin) => ReturnType<typeof this.system.coroutin>;
+	public create_script!: (script: IScript) => ReturnType<typeof this.scripts_system.create_script>;
 
 	public override run(this: Evaluetor<ctx>, code: string) {
 		const symbol = Symbol(`unique symbol [${this.source}]`);
@@ -47,9 +52,9 @@ export class Evaluetor<ctx> extends CodeEnv<ctx, ICodeEnv, typeof CODE, IUnitCod
 			delete this.events[id];
 		}
 
-		this.system.deleteCoroutins(symbol);
+		this.scripts_system.clear_scripts(symbol);
 
-		this.create_coroutin = coroutin => this.system.coroutin(this, symbol, coroutin);
+		this.create_script = script => this.scripts_system.create_script(this, symbol, script);
 
 		const r = super.run(code);
 		const __start__ = this.entru_points.__start__;
@@ -58,132 +63,5 @@ export class Evaluetor<ctx> extends CodeEnv<ctx, ICodeEnv, typeof CODE, IUnitCod
 		__start__.apply(this.ctx);
 
 		return r;
-	}
-}
-
-
-export class EvaluetorBAK<Iter extends Generator<any, any, any> = Generator<any, any, any>> extends EventDispatcher {
-	public '@run' = new Event<EvaluetorBAK<Iter>, []>(this);
-
-	protected _isRunned: boolean = false;
-	public isRunned() { return this._isRunned; }
-	public isStoped() { return !this._isRunned; }
-
-	protected dt: number = 0;
-	protected time: number = 0;
-
-	protected next_return?: Generator.TNext<Iter>;
-
-	public done: boolean = true;
-	public iterator: Iter | null = null;
-
-	public isTimeSync: boolean = true;
-	public readonly MIN_TIME: number = 1;
-
-	public code: string;
-	public env: any;
-	public ctx: any;
-	public source: () => string;
-	public handler: (dt: number, ...args: Generator.T<Iter>) => { time: number, data: Generator.TNext<Iter> };
-	public handler_start_yield: (data: Generator.TNext<Iter>) => any = () => {};
-
-	constructor({ code, ctx, env, source, handler, handler_start_yield }: {
-		code: string,
-		ctx: any,
-		env: object,
-		source: () => string,
-		handler: EvaluetorBAK['handler']
-		handler_start_yield?: EvaluetorBAK['handler_start_yield']
-	}) {
-		super();
-
-		this.code = code;
-		this.ctx = ctx;
-		this.env = env;
-		this.source = source;
-		this.handler = handler;
-		if(handler_start_yield) this.handler_start_yield = handler_start_yield;
-	}
-
-	public throw(err: unknown) { this.iterator?.throw(err); }
-
-	public run(): this {
-		if(this.iterator || !this.done || this._isRunned) throw new Error('evaluetor not completed');
-
-		try {
-			this.iterator = codeShell<() => () => Iter>(`__register__ = __start__; __register__ = null; ${this.code}`, this.env, {
-				source: this.source()
-			}).call(this.ctx).call(this.ctx);
-		} catch(err) {
-			console.error(err);
-			return this;
-		}
-
-		this.done = false;
-		this._isRunned = true;
-
-		const { done, value } = this.iterator.next();
-		if(!done) {
-			this.time = 0;
-			this.handler_start_yield(value);
-		} else throw new Error('invalid evaluetor');
-
-		this['@run'].emit();
-
-		return this;
-	}
-
-	public reset(): this {
-		if(!this.iterator) return this;
-
-		(this.iterator as any).return();
-		this.iterator = null;
-
-		this.dt = 0;
-		this.done = true;
-		this._isRunned = false;
-
-		return this;
-	}
-
-	public tick(dt: number): void {
-		if(!this.iterator || this.done || !this._isRunned) return;
-
-		this.dt += dt;
-		if(this.dt < this.time) return;
-
-		let delta = dt;
-
-		while(true) {
-			const { done, value } = this.iterator.next(this.next_return);
-
-			if(done) {
-				this.reset();
-				return;
-			}
-
-			if(value === null) {
-				this.next_return = void 0;
-				return;
-			}
-
-			const { time, data } = this.handler(delta, ...value);
-
-			this.next_return = data;
-
-			this.dt -= this.time;
-			this.time = time;
-
-			if(this.isTimeSync) {
-				if(time < 0 || time < this.MIN_TIME) throw new Error('The time cannot be zero or less MIN_TIME');
-
-				if(this.dt >= time) {
-					delta = 0;
-					continue;
-				}
-			} else this.dt = 0;
-
-			return;
-		}
 	}
 }

@@ -1,6 +1,6 @@
 export const CODE = {
-	OK: Symbol('OK'),
 	ALL: Symbol('ALL'),
+	ERR_STATUS: Symbol('ERR_STATUS'),
 	TARGET_DISTANCE_ZERO: Symbol('TARGET_DISTANCE_ZERO'),
 
 	ERR_UNKNOWN_ORDER: Symbol('ERR_UNKNOWN_ORDER'),

@@ -10,7 +10,13 @@
 	<body>
 		<div id="app">
 			<style>
-				body { margin: 0; }
+				* {
+					padding: 0;
+					margin: 0;
+					tab-size: 4;
+					box-sizing: border-box;
+					outline: none;
+				}
 				#app {
 					display: grid;
 					align-items: center;
@@ -20,6 +26,7 @@
 
 					&:fullscreen > * {
 						height: calc(100dvh - env(keyboard-inset-height, 0px));
+						max-height: calc(100dvh - env(keyboard-inset-height, 0px));
 					}
 				}
 				#GUI {
