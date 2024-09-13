@@ -6,10 +6,12 @@ import {
 	math as Math,
 	function_constructors,
 	Generator,
-	getTypeFunction
+	getTypeFunction,
+	delay
 } from 'ver/helpers';
 
 import { Executor } from './code/Executor';
+import { EModule } from './world/EModule';
 
 type rec_fns = {
 	Function: (this: any, ...args: any) => any;
@@ -212,9 +214,8 @@ export class CodeSpace<
 	public run(code: string): unknown {
 		this.code = code;
 
-		const _Vector2 = eval(Vector2.toString());
 		const env = Object.create(Object.fullassign({}, this.env, {
-			Vector2: _Vector2,
+			Vector2,
 			Math, JSON, console,
 			Object, String, Number, Boolean, BigInt
 		}));
@@ -231,7 +232,8 @@ export class CodeSpace<
 
 		const entrys = (Object.keys(this.entry) as string[]).map(it => `global['${CodeSpace.REG_SETTER}'] = ${it}; `).join('');
 		return codeShell(`${entrys}delete global['${CodeSpace.REG_SETTER}']; ${code}`, env, {
-			arguments: Object.keys(this.args).join(', ')
+			arguments: Object.keys(this.args).join(', '),
+			source: this.source
 		}).apply(this.ctx, Object.values(this.args) as any);
 	}
 
@@ -240,35 +242,37 @@ export class CodeSpace<
 }
 
 
-export class ScriptsSystem<const T extends Record<string, Executor>> extends EventDispatcher {
+export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatcher {
 	public scripts: [owner: CodeSpace<any, any, any, any>, token: symbol, script: Script][] = [];
 
 	constructor(public executors: T) { super(); }
 
 	public create_script(
 		owner: CodeSpace<any, any, any, any>, token: symbol,
-		script: (this: any, ...args: any) => Generator<any, any, any>
+		_script: (this: any, ...args: any) => Generator<any, any, any>
 	) {
-		const o = new Script(script);
+		const script = new Script(_script);
 
-		this.scripts.push([owner, token, o]);
+		this.scripts.push([owner, token, script]);
 
-		const r = Object.assign(script, {
-			run: (_this: any, ...args: any) => (o.run(_this, ...args), r),
-			isStart: () => o.isStart(),
-			isStop: () => o.isStop(),
-			start: () => o.start(),
-			stop: () => o.stop(),
-			toggle: (v: any) => o.toggle(v),
-			throw: (v: any) => o.throw(v),
-			return: (v: any) => o.return(v),
-			reset: (v: any) => (o.reset(v), r),
-			then: (...args: any) => o.then(...args),
-			catch: (...args: any) => o.catch(...args),
-			finally: (...args: any) => o.finally(...args)
+		script.on('run', () => {
+			this.script_next(owner, script);
 		});
 
-		;
+		const r = {
+			run: (_this: any, ...args: any) => (script.run(_this, ...args), r),
+			isStart: () => script.isStart(),
+			isStop: () => script.isStop(),
+			start: () => script.start(),
+			stop: () => script.stop(),
+			toggle: (v: any) => script.toggle(v),
+			throw: (v: any) => script.throw(v),
+			return: (v: any) => script.return(v),
+			reset: (v: any) => (script.reset(v), r),
+			then: (...args: any) => script.then(...args),
+			catch: (...args: any) => script.catch(...args),
+			finally: (...args: any) => script.finally(...args)
+		};
 
 		return r;
 	}
@@ -276,17 +280,32 @@ export class ScriptsSystem<const T extends Record<string, Executor>> extends Eve
 		let l; while(~(l = this.scripts.findIndex(([, token_]) => token_ == token))) this.scripts.splice(l, 1);
 	}
 
-	public handler(value: any): any {
-		return;
-	}
+	public async script_next(owner: CodeSpace<any, any, any, any>, script: Script) {
+		console.groupEnd();
+		// if(!owner.isActive || !script.iterator || script.isStop()) return;
 
-	public update(dt: number): void {
-		for(const [owner, _, script] of this.scripts) {
-			if(!owner.isActive || !script.iterator || script.isStop()) return;
+		const { done, value } = script.next(script.out_data);
+		if(done) return void script.reset(value);
 
-			const { done, value } = script.next(script.out_data);
-			if(done) { script.reset(value); continue; }
-			script.out_data = this.handler(value);
+		console.group(script.generator.name, value);
+
+		let promise: PromiseLike<any>;
+
+		if(value[0] === null) {
+			const [, id, ...args] = value as [string, string, ...any[]];
+			if(id === 'delay') promise = delay(...args);
+			throw 0;
+		} else {
+			const [module_id, id, ...args] = value as [string, string, ...any[]];
+			const module = this.executors.find(it => it.module_id === module_id);
+
+			if(!module) throw new Error('unknown module');
+			promise = module.request(id, ...args);
 		}
+
+		promise.then(data => {
+			script.out_data = data;
+			this.script_next(owner, script);
+		});
 	}
 }

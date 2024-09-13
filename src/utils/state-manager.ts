@@ -14,7 +14,8 @@ export const createStateManager = <T extends Record<string, boolean>>(state: T, 
 	const m = Object.create(null);
 
 	for(const id in state) {
-		m[id] = (value: T[typeof id]) => {
+		m[id] = (value?: T[typeof id]) => {
+			if(typeof value === 'undefined') return state[id];
 			if(value === state[id]) return true;
 			const f = accessors[id](state);
 			state[id] = value;

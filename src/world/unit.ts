@@ -7,8 +7,8 @@ import { dirToVec2 } from '@/utils/cell';
 import { CELL_SIZE } from '@/config';
 import type { IScanData, World } from '@/scenes/World';
 import { Entity } from './Entity';
-import { createStateManager } from '@/utils/state-manager';
 import { MoveModule } from './modules/MoveModule';
+import { ScanModule } from './modules/ScanModule';
 
 type Iter = Generator<[string, ...any[]], any, any>;
 
@@ -16,25 +16,27 @@ type Iter = Generator<[string, ...any[]], any, any>;
 const TIME = 1000;
 
 export const ENV_UNIT = (_world: World, unit: Unit) => ({
-	*turn(dir: number): Iter { yield ['turn', dir]; },
-	*scan(): Iter { return yield ['scan']; },
+	*turn(dir: number): Iter { yield ['move', 'turn', dir]; },
+	*scan(): Iter { return yield ['scan', 'scan']; },
 	*moveForward(c: number): Iter {
-		for(let i = 0; i < c; i++) if(!(yield ['moveForward'])) return false;
-		return true;
+		for(let i = 0; i < c; i++) {
+			const code = yield ['move', 'moveForward'];
+			if(typeof code === 'symbol') return code;
+		}
 	},
 	*moveTo(target?: Vector2, steps: number = Math.INF): Iter {
 		if(!target) throw new Error('"moveTo" invalid argumnets '+String(target));
 		if(unit.cell.isSame(target)) return false;
 
 		for(let i = 0; i < steps; i++) {
-			if(yield ['moveTo', target.new()]) continue;
+			if(yield ['move', 'moveTo', target.new()]) continue;
 			return false;
 		}
 	},
-	*extract(): Iter { return yield ['extract']; },
+	*extract(): Iter { return yield ['work', 'extract']; },
 	*transfer(target?: Vector2): Iter {
 		if(!target) throw new Error('"transfer" invalid argumnets '+String(target));
-		return yield ['transfer', target.new()];
+		return yield ['cargo', 'transfer', target.new()];
 	},
 	get cargo_filled() { return unit.cargo.fullness_normaloze > 0.9; },
 	get diration() { return unit.diration; },
@@ -46,20 +48,6 @@ export const ENV_UNIT = (_world: World, unit: Unit) => ({
 });
 
 export const API_UNIT = {
-	// scan: (world: World, unit: Unit) => {
-	// 	return { time: TIME, state: ['scan'], data: world.unitRadarScan(unit) }
-	// },
-	moveTo: (world: World, unit: Unit, pos: Vector2) => {
-		return { time: TIME, state: { move: MoveModule }, data: world.moveTo(unit, pos, 1) };
-	},
-	// moveForward: (world: World, unit: Unit) => {
-	// 	// if(!unit.processes_state.move(true)) return { time: null, data: CODE.ERR_STATUS };
-	// 	return { time: TIME, state: ['move'], data: world.moveForward(unit, 1) };
-	// },
-	// turn: (_world: World, unit: Unit, dir: any) => {
-	// 	// if(!unit.processes_state.move(true)) return { time: null, data: CODE.ERR_STATUS };
-	// 	return { time: TIME, state: ['move'], data: unit.diration += Math.sign(dir) };
-	// },
 	// extract: (world: World, unit: Unit) => {
 	// 	// if(!unit.processes_state.work(true)) return { time: null, data: CODE.ERR_STATUS };
 	// 	return { time: TIME, state: ['work'], data: world.unitExtract(unit, Vector2.ZERO) };
@@ -76,19 +64,7 @@ export class Unit extends Entity {
 
 	public cargo = new Cargo(10);
 
-	constructor(cell: Vector2) { super(cell, [MoveModule]); }
-
-	public processes_state = createStateManager({
-		move: false as boolean,
-		fire: false as boolean,
-		scan: false as boolean,
-		work: false as boolean
-	}, {
-		move: () => true,
-		fire: () => true,
-		scan: ({ move }) => !move,
-		work: ({ move, fire }) => !(move && fire)
-	});
+	constructor(cell: Vector2, world: World) { super(cell, world, [MoveModule, ScanModule]); }
 
 	public draw({ ctx }: Viewport, pos: Vector2) {
 		ctx.strokeStyle = '#eeaa77';

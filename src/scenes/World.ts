@@ -204,7 +204,7 @@ export class World extends Node {
 	}
 
 
-	public evaluetors = new WeakMap<Evaluetor<any>, Entity>();
+	public evaluetors = new Map<Evaluetor<any>, Entity>();
 
 	// public scripts_system = new ScriptsSystem((owner, dt, _time, value) => {
 	// 	if(value === null) return { time: null, data: null };
@@ -307,7 +307,7 @@ export class World extends Node {
 			const env = Object.fullassign({}, ENV_UNIT(this, unit), {
 				memory: Object.create(null),
 			});
-			const evaluetor = new Evaluetor(unit, {}, env, 'user/unit,js');
+			const evaluetor = new Evaluetor(unit.modules, {}, env, 'user/unit.js');
 			this.evaluetors.set(evaluetor, unit);
 
 			evaluetor.run(code_unit);
@@ -317,12 +317,16 @@ export class World extends Node {
 			this.radar_scan_data.set(structure, []);
 
 			// const env = Object.fullassign({}, ENV_STRUCTURE(this, structure));
-			// const evaluetor = new Evaluetor(this.scripts_system, {}, env, 'user/structure,js');
+			// const evaluetor = new Evaluetor(this.scripts_system, {}, env, 'user/structure.js');
 			// this.evaluetors.set(evaluetor, structure);
 			//
 			// evaluetor.run(code_structure);
 		});
 
 		// this.scripts_system.start();
+	}
+
+	protected override _process(dt: number): void {
+		for(let i = 0; i < this.$units.items.length; i++) this.$units.items[i].update(dt);
 	}
 }

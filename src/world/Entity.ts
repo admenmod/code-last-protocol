@@ -4,6 +4,8 @@ import { math as Math } from 'ver/helpers';
 
 import { TDiration } from '@/utils/cell';
 import { EModule } from './EModule';
+import { World } from '@/scenes/World';
+import { createStateManager } from '@/utils/state-manager';
 
 
 export class Entity extends EventDispatcher {
@@ -19,9 +21,33 @@ export class Entity extends EventDispatcher {
 
 	public modules: EModule<Entity>[] = [];
 
-	constructor(cell: Vector2, modules: (new (owner: Entity) => EModule<Entity>)[]) { super();
+	constructor(cell: Vector2, world: World, modules: (new (world: World, owner: Entity) => EModule<Entity>)[]) { super();
 		this.cell.set(cell);
 
-		for(const module of modules) this.modules.push(new module(this));
+		for(const module of modules) this.modules.push(new module(world, this));
+
+		for(const module of this.modules) {
+			console.log(setInterval(() => console.log(module), 2000));
+			module.on('chain', () => console.log(module.module_id, [...module.tasks]));
+			module.on('chain', () => (this.processes_state as any)[module.module_id](!!module.tasks.length));
+		}
+	}
+
+	public processes_state = createStateManager({
+		move: false as boolean,
+		fire: false as boolean,
+		scan: false as boolean,
+		work: false as boolean
+	}, {
+		move: () => true,
+		scan: ({ move }) => !move,
+		fire: () => true,
+		work: ({ move, fire }) => !(move && fire)
+	});
+
+	public update(dt: number): void {
+		for(let i = 0; i < this.modules.length; i++) {
+			if((this.processes_state as any)[this.modules[i].module_id]()) this.modules[i].tick(dt);
+		}
 	}
 }

@@ -3,6 +3,8 @@ import { object as Object, Fn } from 'ver/helpers';
 
 import { CodeSpace, IScript, ScriptsSystem } from '@/ScriptsSystem';
 import { CODE } from './code';
+import { EModule } from '@/world/EModule';
+import { Entity } from '@/world/Entity';
 
 
 interface ICodeEnv {}
@@ -10,12 +12,17 @@ interface ICodeEnv {}
 type IUnitCodeEntry = { __start__: 'Function' };
 export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry> {
 	public events: Record<string, Event> = Object.create(null);
+	public scripts = new Map<IScript, ReturnType<ScriptsSystem<any>['create_script']>>;
 
-	constructor(public scripts_system: ScriptsSystem, ctx: ctx, _env: ICodeEnv, source: string) {
-		const scripts = new WeakMap<IScript, ReturnType<typeof scripts_system.create_script>>;
+	public scripts_system: ScriptsSystem<any>;
 
+	constructor(modules: EModule<Entity>[] = [], ctx: ctx, _env: ICodeEnv, source: string) {
 		const script = Object.assign((script: IScript) => this.create_script(script), {
-			mono: (s: IScript) => scripts.get(s)
+			mono: (s: IScript) => {
+				const api = this.scripts.get(s) || script(s);
+				if(!this.scripts.has(s)) this.scripts.set(s, api);
+				return api;
+			}
 		});
 
 		const on = (id: string, fn: Fn, priority?: number, tag?: string | symbol, once?: boolean, shift?: boolean) => {
@@ -35,17 +42,22 @@ export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitC
 		};
 
 		const env = Object.fullassign({}, _env, {
+			memory: Object.create(null),
 			on, once, off, emit,
-			script
+			script, delay: function* (...args: any): any { return yield [null, 'delay', ...args]; }
 		});
 
 		super({ ctx, env, args: { ...CODE }, entry: { __start__: 'Function' }, source });
+
+		this.scripts_system = new ScriptsSystem(modules);
 	}
 
 	public create_script!: (script: IScript) => ReturnType<typeof this.scripts_system.create_script>;
 
 	public override run(this: Evaluetor<ctx>, code: string) {
 		const symbol = Symbol(`unique symbol [${this.source}]`);
+
+		this.scripts.clear();
 
 		for(const id in this.events) {
 			this.events[id].off();

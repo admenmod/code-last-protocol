@@ -44,13 +44,13 @@ export const GUI: FC = () => {
 				$selected_file.set({ name: 'unit', path: 'user/unit.js', data: code });
 			}}>open</button>
 		</div>
-
-		<div theme-custom class='GUI' style={{
-			gridArea: '1/2/2/1',
-			alignSelf: 'start',
-			width: '100%',
-			height: '100%',
-			background: '#00000080'
-		}}>{content}</div>
 	</>
 }
+		//
+		// <div theme-custom class='GUI' style={{
+		// 	gridArea: '1/2/2/1',
+		// 	alignSelf: 'start',
+		// 	width: '100%',
+		// 	height: '100%',
+		// 	background: '#00000080'
+		// }}>{content}</div>
