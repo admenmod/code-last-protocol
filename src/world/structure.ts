@@ -4,13 +4,14 @@ import type { Viewport } from 'ver/Viewport';
 
 import { Cargo } from './cargo';
 import { Entity } from './Entity';
+import { World } from '@/scenes/World';
 
 
 export class Structure extends Entity {
 	public cargo = new Cargo(100);
 
-	constructor(cell: Vector2, size: Vector2, public title = '<title>') {
-		super(cell);
+	constructor(world: World, cell: Vector2, size: Vector2, public title = '<title>') {
+		super(cell, world, []);
 		this.size.set(size);
 	}
 

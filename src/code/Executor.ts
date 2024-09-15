@@ -4,7 +4,7 @@ import { Event, EventDispatcher } from 'ver/events';
 export interface APIResult<T> {
 	time: number | null;
 	task: (dt: number) => T;
-	cache: 'TASK_LAST_LINK' | void;
+	cache?: 'TASK_LAST_LINK';
 }
 
 const MIN_TIME = 1;
@@ -16,11 +16,13 @@ export class Task<T = any> implements PromiseLike<T> {
 
 	public promise: Promise<T>;
 	public resolve: (value: T) => void;
+	public reject: (err: unknown) => void;
 
 	constructor(public readonly time: number | null, public cb: (dt: number) => T) {
-		const { promise, resolve } = Promise.withResolvers<T>();
+		const { promise, resolve, reject } = Promise.withResolvers<T>();
 		this.promise = promise;
 		this.resolve = resolve;
+		this.reject = reject;
 	}
 
 	public make(dt: number): this {
@@ -42,15 +44,11 @@ export class Task<T = any> implements PromiseLike<T> {
 	public get [Symbol.toStringTag]() { return 'Task'; }
 }
 
+
 export class Executor extends EventDispatcher {
-	public '@chain' = new Event<Executor, []>(this);
-
-
 	public tasks: Task[] = [];
 
-	constructor(public API: Record<string, (...args: any) => APIResult<any>>) {
-		super();
-	}
+	constructor(public API: Record<string, (...args: any) => APIResult<any>>) { super(); }
 
 	public request(id: string, ...args: any) {
 		if(!(id in this.API)) throw new Error('invalid request api');
@@ -68,8 +66,6 @@ export class Executor extends EventDispatcher {
 			o = new Task<T>(time, task);
 			this.tasks.push(o);
 		}
-
-		this['@chain'].emit();
 
 		return o;
 	}
@@ -108,6 +104,5 @@ export class Executor extends EventDispatcher {
 		task.make(delta);
 
 		this.tasks.shift();
-		this['@chain'].emit();
 	}
 }

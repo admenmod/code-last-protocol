@@ -106,6 +106,8 @@ export class MainScene extends Control {
 	protected override _ready(this: MainScene): void {
 		// this.$world.$structures.create(MainBase, new Vector2());
 		const unit = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world);
+		const unit2 = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world);
+		unit2.diration += 2;
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {
 			dir = dir.replace('Arrow', '');

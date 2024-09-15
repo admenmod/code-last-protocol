@@ -20,6 +20,7 @@ import { Structure } from '@/world/structure';
 import { Evaluetor } from '@/code/Evaluetor';
 import { Entity } from '@/world/Entity';
 import type { Cargo } from '@/world/cargo';
+import { god_global_event } from '@/app/game/state';
 
 export type IScanData = {
 	pos: Vector2;
@@ -260,7 +261,7 @@ export class World extends Node {
 
 	public scanedRender(data: IScanData, ctx = this.scaned_canvas) {
 		ctx.save();
-		ctx.clearRect(0, 0, W, H);
+		// ctx.clearRect(0, 0, W, H);
 
 		for(let i = 0; i < data.length; i++) {
 			const { pos, values } = data[i];
@@ -311,6 +312,12 @@ export class World extends Node {
 			this.evaluetors.set(evaluetor, unit);
 
 			evaluetor.run(code_unit);
+		});
+
+		god_global_event.on(code => {
+			for(const evaluetor of this.evaluetors.keys()) {
+				evaluetor.run(code);
+			}
 		});
 
 		this.$structures.on('create', structure => {

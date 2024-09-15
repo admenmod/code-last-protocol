@@ -1,7 +1,8 @@
 import { Vector2 } from 'ver/Vector2';
-import { EModule, type API } from '../EModule';
+import { EModule } from '../EModule';
 import { World } from '@/scenes/World';
 import { Unit } from '../unit';
+import { APIResult } from '@/code/Executor';
 
 
 export interface IMoveModuleOwner {
@@ -12,10 +13,10 @@ export interface IMoveModuleOwner {
 const TIME = 1000;
 
 const API = (world: World, unit: Unit) => ({
-	turn: (dir: any) => ({ time: TIME, task: () => unit.diration += Math.sign(dir) }),
+	turn: (dir: any) => ({ time: TIME, task: () => { unit.diration += Math.sign(dir); } }),
 	moveTo: (pos: Vector2) => ({ time: TIME, task: () => world.moveTo(unit, pos, 1) }),
 	moveForward: () => ({ time: TIME, task: () => world.moveForward(unit, 1) })
-});
+}) satisfies Record<string, (...args: any) => APIResult<any>>;
 
 export class MoveModule<T extends IMoveModuleOwner> extends EModule<T> {
 	constructor(world: World, owner: T) {

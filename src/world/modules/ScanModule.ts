@@ -1,7 +1,8 @@
 import { Vector2 } from 'ver/Vector2';
-import { EModule, type API } from '../EModule';
+import { EModule } from '../EModule';
 import { World } from '@/scenes/World';
 import { Unit } from '../unit';
+import { APIResult } from '@/code/Executor';
 
 
 export interface IScanModuleOwner {
@@ -9,11 +10,11 @@ export interface IScanModuleOwner {
 	size: Vector2;
 }
 
-const TIME = 3000;
+const TIME = 1000;
 
-const API = (world: World, unit: Unit): API => ({
+const API = (world: World, unit: Unit) => ({
 	scan: () => ({ time: TIME, cache: 'TASK_LAST_LINK', task: () => world.unitRadarScan(unit) })
-});
+}) satisfies Record<string, (...args: any) => APIResult<any>>;
 
 export class ScanModule<T extends IScanModuleOwner> extends EModule<T> {
 	constructor(world: World, owner: T) {

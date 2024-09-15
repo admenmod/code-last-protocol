@@ -18,6 +18,8 @@ export interface IEditFile {
 }
 
 
+export const god_global_event = new EventAsFunction<null, [code: string]>(null);
+
 export const $isGKIISelected = atom(false);
 export const $selected_file = atom<IEditFile | null>(null);
 export const $selected_structure = atom<Structure | null>(null);

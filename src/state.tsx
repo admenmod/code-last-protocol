@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { atom } from 'nanostores';
 import { FunctionIsEvent } from 'ver/events';
 import { window_resize, before_unload } from '@/global-events';
+import { canvas } from './canvas';
 
 import * as Scene_menu from '@/app/menu';
 import * as Scene_game from '@/app/game';
@@ -14,6 +15,14 @@ window_resize.on(() => $is_fullscreen.set(Boolean(document.fullscreenElement)));
 const app = document.querySelector<HTMLDivElement>('#app')!;
 //@ts-ignore
 window.ondblclick = () => app.webkitRequestFullscreen();
+
+canvas.on('resize', () => {
+	if(document.fullscreenElement === app) {
+		document.querySelector<HTMLElement>(':root')!
+		.style.setProperty('--vh', 'calc(100dvh - env(keyboard-inset-height, 0px))');
+	}
+});
+
 
 export type scene_name = keyof typeof scenes;
 export const scenes = {

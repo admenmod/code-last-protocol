@@ -10,7 +10,7 @@ import {
 	delay
 } from 'ver/helpers';
 
-import { Executor } from './code/Executor';
+import { Task } from './code/Executor';
 import { EModule } from './world/EModule';
 
 type rec_fns = {
@@ -277,7 +277,7 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 		return r;
 	}
 	public clear_scripts(token: symbol) {
-		let l; while(~(l = this.scripts.findIndex(([, token_]) => token_ == token))) this.scripts.splice(l, 1);
+		let l; while(~(l = this.scripts.findIndex(([, token_]) => token_ === token))) this.scripts.splice(l, 1)[0][2].reset(void 0);
 	}
 
 	public async script_next(owner: CodeSpace<any, any, any, any>, script: Script) {
@@ -289,7 +289,7 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 
 		console.group(script.generator.name, value);
 
-		let promise: PromiseLike<any>;
+		let promise: Task<any> | Promise<any>;
 
 		if(value[0] === null) {
 			const [, id, ...args] = value as [string, string, ...any[]];
@@ -304,6 +304,7 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 		}
 
 		promise.then(data => {
+			if(script.done) return;
 			script.out_data = data;
 			this.script_next(owner, script);
 		});

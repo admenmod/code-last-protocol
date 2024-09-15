@@ -41,13 +41,15 @@ export class UnitsL extends Node2D {
 			const pos = item.cell.new().inc(CELL_SIZE).add(CELL_SIZE/2);
 			const rot = Math.TAU/8 * item.diration;
 
+			ctx.save();
+
 			ctx.translate(pos.x, pos.y);
 			ctx.rotate(rot);
 			ctx.translate(-pos.x, -pos.y);
 
 			item.draw(viewport, pos);
 
-			ctx.rotate(-rot);
+			ctx.restore();
 		}
 	}
 }

@@ -54,6 +54,7 @@ export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitC
 
 	public create_script!: (script: IScript) => ReturnType<typeof this.scripts_system.create_script>;
 
+	#prev_symbol!: symbol;
 	public override run(this: Evaluetor<ctx>, code: string) {
 		const symbol = Symbol(`unique symbol [${this.source}]`);
 
@@ -64,15 +65,19 @@ export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitC
 			delete this.events[id];
 		}
 
-		this.scripts_system.clear_scripts(symbol);
+		if(this.#prev_symbol) this.scripts_system.clear_scripts(this.#prev_symbol);
 
 		this.create_script = script => this.scripts_system.create_script(this, symbol, script);
 
 		const r = super.run(code);
 		const __start__ = this.entru_points.__start__;
 
+		console.log(__start__);
+
 		if(!__start__) throw new Error('function "__start__" is not found');
 		__start__.apply(this.ctx);
+
+		this.#prev_symbol = symbol;
 
 		return r;
 	}

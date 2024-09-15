@@ -3,11 +3,12 @@ import type { Viewport } from 'ver/Viewport';
 
 import { Structure } from '@/world/structure';
 import { CELL_SIZE } from '@/config';
+import { World } from './World';
 
 
 export class MainBase extends Structure {
-	constructor(cell: Vector2) {
-		super(cell, new Vector2().set(4), 'Main base');
+	constructor(world: World, cell: Vector2) {
+		super(world, cell, new Vector2().set(4), 'Main base');
 	}
 
 	public override draw({ ctx }: Viewport, pos: Vector2): void {
