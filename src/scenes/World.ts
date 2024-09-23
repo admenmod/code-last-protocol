@@ -1,10 +1,11 @@
-import { math as Math, object as Object } from 'ver/helpers';
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
+import { JSONcopy, math as Math, object as Object } from 'ver/helpers';
 
-import { Node } from 'lib/scenes/Node';
+import { Control } from 'lib/scenes/Control';
 import { GridMap } from 'lib/scenes/gui/GridMap';
 
+import { ItemsL } from './ItemsL';
 import { UnitsL } from './UnitsL';
 import { StructuresL } from './StructuresL';
 import { H, I, SIZE_X, SIZE_Y, W, WorldMap } from './WorldMap';
@@ -14,41 +15,33 @@ import { dirToVec2 } from '@/utils/cell';
 import { CODE } from '@/code/code';
 import { CELL_SIZE } from '@/config';
 import { ka_main } from '@/keyboard';
-import { ENV_UNIT, Unit } from '@/world/unit';
+import { Unit } from '@/world/unit';
 import { Structure } from '@/world/structure';
-// import { ScriptsSystem } from '@/ScriptsSystem';
 import { Evaluetor } from '@/code/Evaluetor';
 import { Entity } from '@/world/Entity';
 import type { Cargo } from '@/world/cargo';
 import { god_global_event } from '@/app/game/state';
 
+
+const is_error = (status_code: unknown) => typeof status_code === 'symbol';
+
 export type IScanData = {
-	pos: Vector2;
 	time: number;
-	values: Record<string, number>;
+	pos: Vector2;
+	cell: Record<string, number>;
+	units: { type: string; }[];
+	structures: { type: string; }[];
 }[];
 
 
-// const API_STRUCTURE = (world: World, structure: Structure) => ({
-// 	scan: () => ({ time: TIME, data: world.structureRadarScan(structure) }),
-// 	extract: () => ({ time: TIME, data: world.structureExtract(structure) }),
-// 	transfer: (target: Vector2) => ({ time: TIME, data: world.transfer(structure, target) })
-// });
-//
-// const ENV_STRUCTURE = (world: World, structure: Structure) => ({
-// 	memory: { base_position: new Vector2(0, 0) },
-// 	*scan(): Iter { return yield ['scan']; },
-// 	*extract(): Iter { return yield ['extract']; },
-// 	*transfer(target?: Vector2): Iter {
-// 		if(!target) throw new Error('"transfer" invalid argumnets '+String(target));
-// 		return yield ['transfer', target.new()];
-// 	},
-// 	get cargo_filled() { return world.resources_cargo.get(structure)!.fullness_normaloze > 0.9; },
-// 	get diration() { return structure.diration; }
-// });
+const copyScanData = <T extends IScanData | IScanData[number]>(o: T): T => {
+	const r = JSONcopy(o);
+	if(Array.isArray(r)) for(let i = 0; i < r.length; i++) r[i].pos = Vector2.from(r[i].pos);
+	else r.pos = Vector2.from(r.pos);
+	return r;
+};
 
-
-export class World extends Node {
+export class World extends Control {
 	public '@RadarScan' = new Event<World, [next: IScanData, prev: IScanData, data: IScanData]>(this);
 	public '@ResourcesExtract' = new Event<World, [allowed: Cargo.Item[], error: Cargo.Item[], ]>(this);
 	public '@ResourcesExtract:unit' = new Event<World, [allowed: Cargo.Item[], error: Cargo.Item[], unit: Unit]>(this);
@@ -61,12 +54,14 @@ export class World extends Node {
 		WorldMap,
 		StructuresL,
 		UnitsL,
+		ItemsL,
 		GridMap
 	}}
 
 	// aliases
 	public get $gridMap() { return this.get('GridMap'); }
 	public get $map() { return this.get('WorldMap'); }
+	public get $items() { return this.get('UnitsL'); }
 	public get $units() { return this.get('UnitsL'); }
 	public get $structures() { return this.get('StructuresL'); }
 
@@ -77,7 +72,7 @@ export class World extends Node {
 	public getUnitHeight(unit: Unit) { return this.$map.height_map[I(unit.cell)]; }
 	public getStructureHeight(structure: Structure) { return this.$map.height_map[I(structure.cell)]; }
 
-	public hasMoveToPos(unit: Unit, rpos: Vector2) {
+	public canMoveToPos(unit: Unit, rpos: Vector2) {
 		if(rpos.isSame(Vector2.ZERO)) return CODE.TARGET_DISTANCE_ZERO;
 		if(Math.abs(rpos.x) > 1 || Math.abs(rpos.y) > 1) return CODE.ERR_NOT_IN_RANGE;
 
@@ -90,9 +85,10 @@ export class World extends Node {
 		return;
 	}
 	public move(unit: Unit, rpos: Vector2) {
-		const code = this.hasMoveToPos(unit, rpos);
+		const code = this.canMoveToPos(unit, rpos);
 
 		if(typeof code !== 'symbol') unit.cell.add(rpos);
+		// if(typeof code !== 'symbol') anims.run(unitMoveAnim, unit, rpos);
 
 		return code;
 	}
@@ -111,10 +107,10 @@ export class World extends Node {
 				const pos = new Vector2(x, y);
 				const i = I(pos);
 
-				arr.push({ pos, time: Date.now(), values: {
+				arr.push({ pos, time: Date.now(), cell: {
 					height: this.$map.height_map[i],
 					resource: this.$map.resources_map[i]
-				}});
+				}, units: [], structures: [] });
 			}
 		}
 
@@ -130,10 +126,11 @@ export class World extends Node {
 		if(!this.radar_scan_data.has(unit)) this.radar_scan_data.set(unit, data);
 
 		for(let i = 0; i < next.length; i++) {
-			const o = data.find(it => it.pos.isSame(next[i].pos));
+			const o = data.find(it => it.pos.isSame(next[i].pos) && it.time < next[i].time);
 
-			if(o) Object.assign(o.values, next[i].values);
-			else data.push({ pos: next[i].pos, time: next[i].time, values: { ...next[i].values } });
+			// HACK:
+			if(o) Object.assign(o.cell, next[i].cell);
+			else data.push(copyScanData(next[i]));
 		}
 
 		this['@RadarScan'].emit(next, prev, data);
@@ -149,10 +146,11 @@ export class World extends Node {
 		if(!this.radar_scan_data.has(structure)) this.radar_scan_data.set(structure, data);
 
 		for(let i = 0; i < next.length; i++) {
-			const o = data.find(it => it.pos.isSame(next[i].pos));
+			const o = data.find(it => it.pos.isSame(next[i].pos) && it.time < next[i].time);
 
-			if(o) Object.assign(o.values, next[i].values);
-			else data.push({ pos: next[i].pos, time: next[i].time, values: { ...next[i].values } });
+			// HACK:
+			if(o) Object.assign(o.cell, next[i].cell);
+			else data.push(copyScanData(next[i]));
 		}
 
 		this['@RadarScan'].emit(next, prev, data);
@@ -175,8 +173,8 @@ export class World extends Node {
 		return items;
 	}
 
-	public unitExtract(unit: Unit, rpos: Vector2) {
-		const items = this.extract(unit.cell.new().add(rpos), this.getUnitHeight(unit), 1);
+	public unitExtract(unit: Unit, rpos: Vector2, count: number = 1) {
+		const items = this.extract(unit.cell.new().add(rpos), this.getUnitHeight(unit), 1 * count);
 		if(typeof items === 'symbol') return items;
 
 		const cargo = unit.cargo;
@@ -205,34 +203,7 @@ export class World extends Node {
 	}
 
 
-	public evaluetors = new Map<Evaluetor<any>, Entity>();
-
-	// public scripts_system = new ScriptsSystem((owner, dt, _time, value) => {
-	// 	if(value === null) return { time: null, data: null };
-	// 	if(typeof value === 'undefined') return { time: void 0, data: void 0 };
-	// 	if(!Array.isArray(value)) throw new Error('invalid request');
-	//
-	// 	const [id, ctx, ...args] = value;
-	// 	console.group({ dt, id, ctx, args });
-	//
-	// 	const obj = this.evaluetors.get(owner as Evaluetor<any>)!;
-	//
-	// 	if(obj instanceof Unit) {
-	// 		if(!(id in obj.API)) throw new Error(`unknown request "${id}"`);
-	// 		const data = (obj.API as any)[id](this, obj, id, ...args);
-	// 		console.groupEnd();
-	// 		return data;
-	// 	} else if(obj instanceof Structure) {
-	// 		// const data = API_STRUCTURE(this, obj)[id](...args);
-	// 		// console.groupEnd();
-	// 		// return data;
-	// 		throw new Error('work');
-	// 	} else throw new Error('unknown request owner');
-	// });
-
-
-	// TODO: сделать items на землю
-	public transfer(a: Unit | Structure, target: Vector2) {
+	public canTransfer(a: Unit | Structure, target: Vector2, predicate: Parameters<Cargo['get']>[0]) {
 		const diff = target.new().sub(a.cell);
 		if(Math.abs(diff.x) > 1 || Math.abs(diff.y) > 1) return CODE.ERR_NOT_IN_RANGE;
 
@@ -250,6 +221,31 @@ export class World extends Node {
 
 		if(!b) return CODE.ERR_TARGET_NOT_FOUND;
 
+		if(!this.entity_evaluetors.get(a)?.entry_points.__transfer__.call(null)) return CODE.NOT_ALLOWED;
+
+		const { error } = b.cargo.checkLimit(...a.cargo.get(predicate));
+		if(error.length) return CODE.ERR_CARGO_IS_OVERFLOWING;
+
+		return;
+	}
+
+	// TODO: сделать items на землю
+	public transfer(a: Unit | Structure, target: Vector2, predicate: Parameters<Cargo['get']>[0]) {
+		const code = this.canTransfer(a, target, predicate);
+		if(is_error(code)) return code;
+
+		const b = this.$units.items.find(it => it.cell.isStaticRectIntersect({
+			x: it.cell.x-it.size.x/2,
+			y: it.cell.y-it.size.y/2,
+			w: it.size.y,
+			h: it.size.y
+		})) || this.$structures.items.find(it => it.cell.isStaticRectIntersect({
+			x: it.cell.x-it.size.x/2,
+			y: it.cell.y-it.size.y/2,
+			w: it.size.y,
+			h: it.size.y
+		}))!;
+
 		const cargo_ = a.cargo;
 		const _cargo = b.cargo;
 
@@ -264,15 +260,47 @@ export class World extends Node {
 		// ctx.clearRect(0, 0, W, H);
 
 		for(let i = 0; i < data.length; i++) {
-			const { pos, values } = data[i];
-			this.$map.drawCalls(pos.new().add(W/2, H/2), values, ctx);
+			const { pos, cell } = data[i];
+			this.$map.drawCalls(pos.new().add(W/2, H/2), cell, ctx);
 		}
 		ctx.restore();
 	}
 
+	public canSpawnUnit(entity: Entity, rpos: Vector2, Class: typeof Unit) {
+		if(rpos.isSame(Vector2.ZERO)) return CODE.TARGET_DISTANCE_ZERO;
+		if(Math.abs(rpos.x) > 1 || Math.abs(rpos.y) > 1) return CODE.ERR_NOT_IN_RANGE;
+
+		const target = entity.cell.new().add(rpos);
+		const TCI = I(target); // Target cell index
+		const ECI = I(entity.cell.new()); // Entity cell index
+
+		if(Math.abs(this.$map.height_map[ECI] - this.$map.height_map[TCI]) > 0.1) return CODE.ERR_BIG_DIFF_HEIGHT;
+
+		if('cargo' in entity) (entity.cargo as Cargo).search(...Class.build_resources);
+
+		return;
+	}
+	public spawnUnit<T extends typeof Unit>(entity: Entity, rpos: Vector2, Class: T) {
+		const code = this.canSpawnUnit(entity, rpos, Class);
+		if(is_error(code)) return code;
+		return this.$units.create<typeof Unit>(Class, entity.cell.new().add(rpos), this) as InstanceType<T>;
+	}
+
+
+	public evaluetors_entity = new Map<Evaluetor<any>, Entity>();
+	public entity_evaluetors = new Map<Entity, Evaluetor<any>>();
 
 	protected override async _init(this: World): Promise<void> {
 		await super._init();
+
+		this.on('input:click', ({ pos }) => {
+			const cell = pos.new().div(CELL_SIZE).floor();
+
+			const unit = this.$units.getByPos(cell.new());
+			if(!unit) return;
+
+			showUnitEditPanel(unit);
+		});
 
 		this.$gridMap.position.set();
 		this.$gridMap.size.set(W, H).inc(CELL_SIZE);
@@ -305,17 +333,16 @@ export class World extends Node {
 		this.$units.on('create', unit => {
 			this.radar_scan_data.set(unit, []);
 
-			const env = Object.fullassign({}, ENV_UNIT(this, unit), {
-				memory: Object.create(null),
-			});
+			const env = Object.fullassign({}, unit.ENV, { memory: Object.create(null), });
 			const evaluetor = new Evaluetor(unit.modules, {}, env, 'user/unit.js');
-			this.evaluetors.set(evaluetor, unit);
+			this.evaluetors_entity.set(evaluetor, unit);
+			this.entity_evaluetors.set(unit, evaluetor);
 
-			evaluetor.run(code_unit);
+			// evaluetor.run(code_unit);
 		});
 
 		god_global_event.on(code => {
-			for(const evaluetor of this.evaluetors.keys()) {
+			for(const evaluetor of this.evaluetors_entity.keys()) {
 				evaluetor.run(code);
 			}
 		});
@@ -329,11 +356,10 @@ export class World extends Node {
 			//
 			// evaluetor.run(code_structure);
 		});
-
-		// this.scripts_system.start();
 	}
 
 	protected override _process(dt: number): void {
 		for(let i = 0; i < this.$units.items.length; i++) this.$units.items[i].update(dt);
+		for(let i = 0; i < this.$structures.items.length; i++) this.$structures.items[i].update(dt);
 	}
 }

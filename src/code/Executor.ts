@@ -48,7 +48,10 @@ export class Task<T = any> implements PromiseLike<T> {
 export class Executor extends EventDispatcher {
 	public tasks: Task[] = [];
 
-	constructor(public API: Record<string, (...args: any) => APIResult<any>>) { super(); }
+	constructor(
+		public ENV: Record<string, any>,
+		public API: Record<string, (...args: any) => APIResult<any>>
+	) { super(); }
 
 	public request(id: string, ...args: any) {
 		if(!(id in this.API)) throw new Error('invalid request api');

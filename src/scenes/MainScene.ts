@@ -84,7 +84,7 @@ export class MainScene extends Control {
 		this.$camera.on('PreProcess', dt => {
 			this.sensor_camera.update(dt, touches, this.$camera);
 
-			this.$camera.position.moveTime(this.$world.$units.items[0].cell.new().inc(CELL_SIZE), 5);
+			// this.$camera.position.moveTime(this.$world.$units.items[0].cell.new().inc(CELL_SIZE), 5);
 			// this.$camera.rotation += Math.mod(this.$ship.rotation-this.$camera.rotation, -Math.PI, Math.PI) / 5;
 
 

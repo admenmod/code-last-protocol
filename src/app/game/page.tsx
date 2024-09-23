@@ -7,16 +7,38 @@ import { StructurePreview } from './gui/StructurePreview';
 import { kii } from '@/keyboard';
 
 
+const vh = (x: number) => `calc(var(--vh) * ${x})`;
+
 let text_code = '';
 
+
+let next = 0, prev = 0;
+
+
 export const GUI: FC = () => {
+	useEffect(() => console.dir(document.querySelector('q-gui')));
+
 	useEffect(() => void (document.title = NAME), []);
 
-	const isGKIISelected = useStore($isGKIISelected);
 	const file = useStore($selected_file);
+	const isGKIISelected = useStore($isGKIISelected);
 	const selected_structure = useStore($selected_structure);
 
 	const input = useRef<HTMLTextAreaElement>(null);
+
+	const editCode = async () => {
+		if(file) {
+			text_code = input.current!.value;
+			god_global_event(text_code);
+			$selected_file.set(null);
+			return;
+		}
+
+		const data = text_code || await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
+
+		kii.blur();
+		$selected_file.set({ name: 'unit', path: 'user/unit.js', data });
+	};
 
 	return <>
 		<div gui-layer theme-custom class='GUI' style={{
@@ -28,23 +50,11 @@ export const GUI: FC = () => {
 				isGKIISelected ? kii.blur() : kii.focus();
 			}}>KII { isGKIISelected ? 'off' : 'on' }</button>
 
-			<button onClick={async () => {
-				if(file) {
-					text_code = input.current!.value;
-					god_global_event(text_code);
-					$selected_file.set(null);
-					return;
-				}
-
-				const data = text_code || await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
-
-				kii.blur();
-				$selected_file.set({ name: 'unit', path: 'user/unit.js', data });
-			}}>{file ? 'compile' : 'open'}</button>
+			<button onClick={editCode}>{file ? 'compile' : 'open'}</button>
 
 			{ selected_structure && <StructurePreview structure={selected_structure} /> }
 
-			<div gui-layer hidden={ !file } style={{ width: '90vw', height: 'calc(var(--vh))' }}>
+			<div gui-layer hidden={!file} style={{ width: '90vw', height: vh(70) }}>
 				<p style={{ fontFamily: 'monospace' }}>{file?.name} ({file?.path})</p>
 
 				<textarea ref={input} style={{

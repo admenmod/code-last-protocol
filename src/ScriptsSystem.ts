@@ -19,7 +19,7 @@ type rec_fns = {
 	GeneratorFunction: (this: any, ...args: any) => Generator<any, any, any>;
 	AsyncGeneratorFunction: (this: any, ...args: any) => AsyncGenerator<any, any, any>;
 };
-type entru_points<T extends Record<string, keyof typeof function_constructors>> = {
+type entry_points<T extends Record<string, keyof typeof function_constructors>> = {
 	[K in keyof T]: rec_fns[T[K]];
 };
 
@@ -199,7 +199,7 @@ export class CodeSpace<
 	public isActive: boolean = true;
 
 	public code: string = '';
-	public entru_points: entru_points<entry> = {} as any;
+	public entry_points: entry_points<entry> = {} as any;
 
 	public ctx: ctx; public env: env; public args: args; public entry: entry; public source: source;
 
@@ -224,7 +224,7 @@ export class CodeSpace<
 			set: (v: any) => {
 				if(typeof v === 'function') {
 					if(v.constructor === function_constructors[this.entry[v.name]]) {
-						if(this.entry[v.name] === getTypeFunction(v)) (this.entru_points as any)[v.name] = v;
+						if(this.entry[v.name] === getTypeFunction(v)) (this.entry_points as any)[v.name] = v;
 					} else throw new Error(`type function ${v.name} !== ${this.entry[v.name]}`);
 				}
 			}, enumerable: false, configurable: true

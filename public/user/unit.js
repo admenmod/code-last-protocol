@@ -51,7 +51,7 @@ function* moveToBase() {
 function* detectEnemy() {
 	while(true) {
 		const data = yield *scan();
-		const enemys = data.filter(it => it.type === 'unit' && it.team === 'enemy');
+		const enemys = data.filter(({ units }) => units.some(it => it.team === 'enemy'));
 
 		if(enemys.length !== 0) return emit('enemy detected');
 	}
@@ -59,7 +59,7 @@ function* detectEnemy() {
 
 function* searchAndExtractResource() {
 	const data = yield* scan();
-	const resource = data.find(it => it.type === 'cell' && it.values.resource > 0);
+	const resource = data.find(it => it.cell.resource > 0);
 
 	if(!resource) {
 		if(Math.random() < 0.2) yield* turn(1);
@@ -75,3 +75,21 @@ function* searchAndExtractResource() {
 		}
 	}
 }
+
+
+
+
+const { my_view, my_button } = attit({ my_controller })
+`my_view(gui) : view {
+	view() {
+		view() {
+			my_controller.value
+			my_controller.password.length > 6 ? 'ok' : 'error'
+		}
+
+		input(value <=> my_controller.name);
+		input(value <=> my_controller.password);
+	}
+
+	my_button(@click => $my_view@submit_form) { 'jdjwjsjd' }
+}`;

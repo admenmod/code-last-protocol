@@ -10,7 +10,14 @@ export interface IScanModuleOwner {
 	size: Vector2;
 }
 
+type Iter = Generator<[string, ...any[]], any, any>;
+
+
 const TIME = 1000;
+
+const ENV = (_world: World, _unit: Unit) => ({
+	*scan(): Iter { return yield ['scan', 'scan']; }
+});
 
 const API = (world: World, unit: Unit) => ({
 	scan: () => ({ time: TIME, cache: 'TASK_LAST_LINK', task: () => world.unitRadarScan(unit) })
@@ -18,6 +25,6 @@ const API = (world: World, unit: Unit) => ({
 
 export class ScanModule<T extends IScanModuleOwner> extends EModule<T> {
 	constructor(world: World, owner: T) {
-		super('scan', owner, API(world, owner as any as Unit));
+		super('scan', owner, ENV(world, owner as any as Unit), API(world, owner as any as Unit));
 	}
 }

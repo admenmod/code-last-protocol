@@ -1,3 +1,4 @@
+import '@/gui/q-gui';
 import { render } from 'preact';
 import { atom } from 'nanostores';
 import { FunctionIsEvent } from 'ver/events';
@@ -16,10 +17,12 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 //@ts-ignore
 window.ondblclick = () => app.webkitRequestFullscreen();
 
+const GUIElement = document.querySelector<HTMLDivElement>('#GUI')!;
+
 canvas.on('resize', () => {
 	if(document.fullscreenElement === app) {
-		document.querySelector<HTMLElement>(':root')!
-		.style.setProperty('--vh', 'calc(100dvh - env(keyboard-inset-height, 0px))');
+		document.querySelector<HTMLElement>(':root')!.style
+		.setProperty('--vh', GUIElement.getBoundingClientRect().height/100 +'px');
 	}
 });
 

@@ -5,13 +5,13 @@
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="manifest" content="/manifest.json" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+		<script type="module" src="/src/main.ts"></script>
 		<title>Code: Last Protocol</title>
 	</head>
 	<body>
 		<div id="app">
 			<style>
 				:root {
-					--vh: calc(calc(100dvh - env(keyboard-inset-height, 0px)) / 100);
 					--view-height: calc(100dvh - env(keyboard-inset-height, 0px));
 				}
 				* {
@@ -52,12 +52,10 @@
 			</style>
 
 			<canvas id="canvas"></canvas>
-			<div id="GUI"></div>
+			<q-gui id="GUI"></q-gui>
 		</div>
 
 		<script src="/.eruda.js"></script>
 		<script>eruda.init();</script>
-
-		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>

@@ -127,5 +127,13 @@ export class Cargo extends EventDispatcher {
 		}
 	}
 
+	public search(...args: Cargo.Item[]): boolean {
+		for(let i = 0; i < args.length; i++) {
+			if(!this.get(it => it.title === args[i].title && it.count >= args[i].count)) return false;
+		}
+
+		return true;
+	}
+
 	public static copy(items: Cargo.Item[]) { return items.map(it => ({ ...it })) }
 }

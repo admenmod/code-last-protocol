@@ -2,7 +2,7 @@ import type { Structure } from '@/world/structure';
 
 
 export function StructurePreview<T extends Structure>({ structure }: { structure: T }) {
-	return <div theme-custom class='GUI' style={{
+	return <div gui-layer theme-custom class='GUI' style={{
 		display: 'grid',
 		alignSelf: 'center',
 		justifySelf: 'center',

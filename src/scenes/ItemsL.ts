@@ -4,26 +4,24 @@ import { math as Math, Parameters } from 'ver/helpers';
 import type { Viewport } from 'ver/Viewport';
 
 import { Node2D } from 'lib/scenes/Node2D';
-import { Unit } from '@/world/unit';
+import { Item } from '@/world/item';
 
 import { dirToVec2, TDiration } from '@/utils/cell';
 import { CELL_SIZE } from '@/config';
 
 
-export class UnitsL extends Node2D {
-	public '@create' = new Event<UnitsL, [o: Unit]>(this);
+export class ItemsL extends Node2D {
+	public '@create' = new Event<ItemsL, [o: Item]>(this);
 
 
-	public items: Unit[] = [];
+	public items: Item[] = [];
 
-	public create<const T extends new (...args: any) => Unit>(Class: T, ...args: Parameters<T>): InstanceType<T> {
+	public create<const T extends new (...args: any) => Item>(Class: T, ...args: Parameters<T>): InstanceType<T> {
 		const o = new Class(...args);
 		this['@create'].emit(o);
 		this.items.push(o);
 		return o as InstanceType<T>;
 	}
-
-	public getByPos(pos: Vector2) { return this.items.find(it => it.cell.isSame(pos)); }
 
 	protected override async _init(): Promise<void> {
 		await super._init();

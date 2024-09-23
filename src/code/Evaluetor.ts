@@ -8,8 +8,8 @@ import { Entity } from '@/world/Entity';
 
 
 interface ICodeEnv {}
+type IUnitCodeEntry = { __start__: 'Function', __transfer__: 'Function' };
 
-type IUnitCodeEntry = { __start__: 'Function' };
 export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry> {
 	public events: Record<string, Event> = Object.create(null);
 	public scripts = new Map<IScript, ReturnType<ScriptsSystem<any>['create_script']>>;
@@ -47,7 +47,7 @@ export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitC
 			script, delay: function* (...args: any): any { return yield [null, 'delay', ...args]; }
 		});
 
-		super({ ctx, env, args: { ...CODE }, entry: { __start__: 'Function' }, source });
+		super({ ctx, env, args: { ...CODE }, entry: { __start__: 'Function', __transfer__: 'Function' }, source });
 
 		this.scripts_system = new ScriptsSystem(modules);
 	}
@@ -70,9 +70,7 @@ export class Evaluetor<ctx> extends CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitC
 		this.create_script = script => this.scripts_system.create_script(this, symbol, script);
 
 		const r = super.run(code);
-		const __start__ = this.entru_points.__start__;
-
-		console.log(__start__);
+		const __start__ = this.entry_points.__start__;
 
 		if(!__start__) throw new Error('function "__start__" is not found');
 		__start__.apply(this.ctx);

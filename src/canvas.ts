@@ -10,9 +10,10 @@ export const viewport = new Viewport(canvas.create('main').canvas.getContext('2d
 
 const GUIElement = document.querySelector<HTMLDivElement>('#GUI')!;
 export const touches = new TouchesController(GUIElement, e => {
-	let el = (e.target as HTMLElement | null);
-	if(!el) throw new Error('unexpected behavior');
-
-	while(el = el.parentElement) if(el.hasAttribute('gui-layer')) return false;
+	const arr = e.composedPath();
+	for(let i = 0; i < arr.length; i++) {
+		const it = arr[i];
+		if(it instanceof HTMLElement && it.hasAttribute('gui')) return false;
+	}
 	return true;
 });
