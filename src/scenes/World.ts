@@ -338,7 +338,7 @@ export class World extends Control {
 			this.evaluetors_entity.set(evaluetor, unit);
 			this.entity_evaluetors.set(unit, evaluetor);
 
-			// evaluetor.run(code_unit);
+			evaluetor.run(code_unit);
 		});
 
 		god_global_event.on(code => {

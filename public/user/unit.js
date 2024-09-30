@@ -77,19 +77,49 @@ function* searchAndExtractResource() {
 }
 
 
+/*
+class BaseNode extends mixin(EventDispather, Array) {
+	'#attr'= {};
+	$(str, ...args) {}
+}
 
+class QMyView extends BaseNode {
+	'@submit_form' = new Event();
+}
 
-const { my_view, my_button } = attit({ my_controller })
-`my_view(gui) : view {
-	view() {
-		view() {
-			my_controller.value
-			my_controller.password.length > 6 ? 'ok' : 'error'
+class MyView extends $({ View, Input, Button })
+`$(attr_gui = is_gui) : View(attr_gui) {
+	name'w
+	is_gui'r
+
+	form = View() {
+		preview = View() {
+			$.name_preview
+			$.isValidPassword
 		}
 
-		input(value <=> my_controller.name);
-		input(value <=> my_controller.password);
+		name = Input(value <=> $.name)
+		password = Input(value <=> $.password)
 	}
 
-	my_button(@click => $my_view@submit_form) { 'jdjwjsjd' }
-}`;
+	submit = Button(title = 'submit', @click => @submit_form)
+}` {
+	constructor() {}
+}
+
+class MyController extends Q.MyController {
+	;
+}
+
+class MyView extends Q.MyView {
+	@atom name(next = '') { return next; }
+
+	@atom submit_node() {
+		return this.$`form/preview`.$`../../submit`;
+	}
+
+	@atom preview_node() {
+		return this.$`form/preview`[0];
+	}
+}
+*/

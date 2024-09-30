@@ -1,49 +1,21 @@
-import { LitElement, PropertyValueMap, css, html } from 'lit'
+import { LitElement, css, html } from 'lit'
 import { customElement, property, query } from 'lit/decorators.js'
-import { ref } from 'lit/directives/ref.js';
 import { QTextarea } from './q-textarea';
 import './q-textarea';
 
+import { UPDATE, react } from './core';
 
-import 'mol_wire_lib';
 
 
 const TAG_NAME = 'q-gui';
 
-const UPDATE = Symbol('UPDATE');
-
-const react: MethodDecorator = (target, key) => {
-	const f = (target as any)[key] as (...args: any) => any;
-
-	const moke = {};
-	Object.defineProperty(moke, key, Object.assign(Object.getOwnPropertyDescriptor(target, key)!, {
-		value: function(next: any) { console.log(this); this[UPDATE]?.(key, next); return f.call(this, next); }
-	}));
-
-	$mol_mem(moke, key);
-
-	target[key] = moke[key];
-
-	return moke[key];
-};
-
 export @customElement(TAG_NAME) class QGUI extends LitElement {
-	// @ $mol_mem public $render(next = NaN) { this.requestUpdate(); return next; }
-
-	public [UPDATE](key: any) { console.log(22, key); this.requestUpdate(); }
+	public [UPDATE]() { this.requestUpdate(); }
 
 	@react public aa(next = '') { return next; }
 	@react public aaaaa(next = 'sje') { return 'smms'+this.aa(); }
 
-	// @ $mol_mem public code_edit() {
-	// 	const el = document.createElement('textarea');
-	// 	el.value = '';
-	// 	el.oninput = e => void (this.aa((e.currentTarget as HTMLTextAreaElement).value));
-	// 	return el;
-	// }
-
 	@query('textarea') private code_area?: QTextarea;
-	@property() public get ee() { return this.code_area?.value; }
 
 	public csss = {
 		zIndex: '1',
@@ -64,16 +36,13 @@ export @customElement(TAG_NAME) class QGUI extends LitElement {
 	} satisfies Partial<CSSStyleDeclaration>;
 
 	public override render() {
-		// ${this.code_edit()}
-		// <div>${this.aaaaa()}</div>
-		// <button @click=${() => console.log(this.aaaaa())}>show</button>
+				// <textarea .value=${this.aa()} @input=${() => this.aa(this.code_area?.value)}></textarea>
 
 		return html`
 			<div gui theme-custom class='GUI' style=${this.csss}>
-				<textarea .value=${this.aa()} @input=${() => this.aa(this.code_area?.value)}></textarea>
-				${'' && '<q-textarea .value=${this.aa()} />'}
+				<q-textarea .value=${(next: any) => this.aa(next)} />
 
-				<div>${this.aaaaa()}</div>
+				<div>${this.aa()}</div>
 			</div>
 
 			<slot gui theme-custom class='GUI' style=${this.csss}></slot>
