@@ -12,35 +12,41 @@ const getLvl = (level: number[], tabs: number) => {
 	return acc + tabs;
 };
 
-const separator = rgx(regexp`[${TAB}${SPACE}${NEW_LINE}]+`()).then(([sep]) => sep);
-const node = rgx(regexp`\\(.*)(?=${NEW_LINE})|([^${TAB}${SPACE}${NEW_LINE}]+)`()).then(([, node1, node2]) => node1 || node2);
+const control = rgx(regexp`${SPACE}|${NEW_LINE}\S?${TAB}+|${NEW_LINE}|\S${TAB}+`()).then(([value]) => ({ value, type: 'control' as const }));
+const plane_node = rgx(regexp`[^${TAB}${SPACE}${NEW_LINE}]+`()).then(([value]) => ({ value, type: 'node' as const }));
+const data_node = rgx(regexp`\\(.*)(?=${NEW_LINE})`()).then(([, value]) => ({ value, type: 'data' as const}));
+const tree_token = any(control, data_node, plane_node);
 
-export const parse_tree = <T>(acc: (ctx: T, node: string) => T, tree: T) => new Pattern<T>((string: string) => {
-	const _res = rep(any(node, separator)).exec(string);
-	if(!_res || _res.end !== string.length) throw new Error('invalid "tree"');
-
+type acc<T> = (ctx: T, token: { type: 'node' | 'data', value: string, group: string }) => T;
+export const parse_tree = <T>(acc: acc<T>, get_tree: () => T) => new Pattern<T>((string: string) => {
+	const tree = get_tree();
+	const _res = rep(tree_token).exec(string);
+	if(!_res || _res.end !== string.length) throw new Error(`invalid "tree" ${_res?.end || 0}/${string.length}`);
 	const res = _res.res;
-	if(res[0] && /\s/.test(res[0])) throw new Error('invalid "tree"');
 
-	const chain = [tree];
+	const stack = [tree];
 	const level = [0];
 	let tabs = 0;
+	let group = '';
 
 	for(let i = 0; i < res.length; i++) {
-		const token = res[i];
+		let { type, value } = res[i];
 
-		if(i % 2) {
-			if(token === SPACE) level[tabs]++;
-			else if(token[0] === NEW_LINE) {
-				tabs = 0; for(let i = 1; i < token.length; i++) if(token[i] === TAB) tabs += 1;
-				level.length = tabs+1;
+		if(type === 'control') {
+			if(value === SPACE) level[tabs]++;
+			else if(value[0] === NEW_LINE) {
+				value = value.replace(/\n+/y, '\n');
+				tabs = 0;
+				let i = value[1] === TAB ? 1 : 2;
+				group = value[1] !== TAB && value[2] === TAB ? value[1] : '';
+				for(; i < value.length; i++) if(value[i] === TAB) tabs += 1;
+				level.length = tabs;
 				for(let i = 0; i < level.length; i++) if(typeof level[i] === 'undefined') level[i] = 0;
-				level[level.length-1] = 0;
+				level[level.length] = 0;
 			} else throw new Error('lvl error');
 		} else {
 			const lvl = getLvl(level, tabs);
-			// log(token, 'l', lvl, 't', tabs, 's', [...level], ...chain.map(it => Object.keys(it)));
-			chain[lvl+1] = acc(chain[lvl], token);
+			stack[lvl+1] = acc(stack[lvl], { type, group, value });
 		}
 	}
 
@@ -48,17 +54,29 @@ export const parse_tree = <T>(acc: (ctx: T, node: string) => T, tree: T) => new 
 });
 
 
-export type RecRec = { [K: string]: RecRec; };
-export type ArrArr = [string, TreeStruct[]];
-export type TreeStruct = { node: string, tree: TreeStruct }[];
+export type RecRec = { type: 'node' | 'data', group: string, tree: Record<string, RecRec> };
+export type TreeStruct = { type: 'node' | 'data', value: string, group: string, tree: TreeStruct }[];
 
-export const tree_to_TreeStruct = parse_tree<TreeStruct>((ctx, node) => (ctx.push({ node, tree: [] }), ctx.at(-1)!.tree), [])
+export const tree_to_TreeStruct = parse_tree<TreeStruct>((ctx, { type, group, value }) => {
+	ctx.push({ type, group, value, tree: [] });
+	return ctx.at(-1)!.tree;
+}, () => []);
 
-export const tree_to_json = parse_tree<RecRec>((ctx, node) => ctx[node] = Object.create(null), {})
-console.log('tree', JSON.stringify(log(tree_to_json.exec(
-`main view
-	div1 aaa1 vvv1
-		cont1.1 cont1.2 cont1.3
-	div2 aaa2 vvv2
-		cont2.1 cont2.2 cont2.3
-`)!.res), null, '  '));
+export const conv = (_tree: TreeStruct): any => {
+	const o = Object.create(null);
+	for(const { group, value, tree } of _tree) o[`${group}${value}`] = conv(tree);
+	return o;
+}
+
+// log('tree', JSON.stringify(log(conv(log('row', tree_to_TreeStruct.exec(
+// `1111 wkkw
+// 	skksks wlwk
+// 2222 sksk
+// 	skkss
+//
+// main view
+// 	div1 aaa1
+// 		cont1.1
+// 	div2 aaa2
+// 		cont2.1
+// `)!.res))), null, '  '));

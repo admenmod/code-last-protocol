@@ -5,8 +5,8 @@ import { $isGKIISelected, $selected_file, $selected_structure, god_global_event 
 import { useStore } from '@nanostores/preact';
 import { StructurePreview } from './gui/StructurePreview';
 import { kii } from '@/keyboard';
-import { View } from '@/gui/View';
-View;
+// import { View } from '@/gui/View';
+// View;
 
 
 const vh = (x: number) => `calc(var(--vh) * ${x})`;

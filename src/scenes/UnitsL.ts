@@ -6,7 +6,6 @@ import type { Viewport } from 'ver/Viewport';
 import { Node2D } from 'lib/scenes/Node2D';
 import { Unit } from '@/world/unit';
 
-import { dirToVec2, TDiration } from '@/utils/cell';
 import { CELL_SIZE } from '@/config';
 
 

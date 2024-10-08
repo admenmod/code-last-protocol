@@ -1,6 +1,6 @@
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
-import { Parameters, math as Math } from 'ver/helpers';
+import { type Parameters, math as Math } from 'ver/helpers';
 import type { Viewport } from 'ver/Viewport';
 
 import { CELL_SIZE } from '@/config';
@@ -37,13 +37,15 @@ export class StructuresL extends Node2D {
 			if(item.size.y % 2) pos.y += CELL_SIZE/2;
 			const rot = Math.TAU/8 * item.diration;
 
+			ctx.save();
+
 			ctx.translate(pos.x, pos.y);
 			ctx.rotate(rot);
 			ctx.translate(-pos.x, -pos.y);
 
 			item.draw(viewport, pos);
 
-			ctx.rotate(-rot);
+			ctx.restore();
 		}
 	}
 

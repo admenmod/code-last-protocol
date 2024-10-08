@@ -299,7 +299,7 @@ export class World extends Control {
 			const unit = this.$units.getByPos(cell.new());
 			if(!unit) return;
 
-			showUnitEditPanel(unit);
+			// showUnitEditPanel(unit);
 		});
 
 		this.$gridMap.position.set();

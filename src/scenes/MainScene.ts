@@ -22,7 +22,6 @@ export const audioContorller = new AudioContorller();
 
 import { ka_main } from '@/keyboard';
 import { Unit } from '@/world/unit';
-import { CELL_SIZE } from '@/config';
 
 
 class Info extends Node2D {
