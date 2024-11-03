@@ -5,9 +5,9 @@ import { JSONcopy, math as Math, object as Object } from 'ver/helpers';
 import { Control } from 'lib/scenes/Control';
 import { GridMap } from 'lib/scenes/gui/GridMap';
 
-import { ItemsL } from './ItemsL';
-import { UnitsL } from './UnitsL';
-import { StructuresL } from './StructuresL';
+import { Items } from './Items';
+import { Units } from './Units';
+import { Structures } from './Structures';
 import { H, I, SIZE_X, SIZE_Y, W, WorldMap } from './WorldMap';
 
 import { Env } from '@/world/env';
@@ -20,10 +20,11 @@ import { Structure } from '@/world/structure';
 import { Evaluetor } from '@/code/Evaluetor';
 import { Entity } from '@/world/Entity';
 import type { Cargo } from '@/world/cargo';
+import type { EModule } from '@/world/EModule';
 import { god_global_event } from '@/app/game/state';
 
 
-const is_error = (status_code: unknown) => typeof status_code === 'symbol';
+const isError = (status_code: unknown) => typeof status_code === 'symbol';
 
 export type IScanData = {
 	time: number;
@@ -52,18 +53,16 @@ export class World extends Control {
 
 	public override TREE() { return {
 		WorldMap,
-		StructuresL,
-		UnitsL,
-		ItemsL,
+		Structures,
+		Units,
+		Items,
 		GridMap
 	}}
-
 	// aliases
 	public get $gridMap() { return this.get('GridMap'); }
 	public get $map() { return this.get('WorldMap'); }
-	public get $items() { return this.get('UnitsL'); }
-	public get $units() { return this.get('UnitsL'); }
-	public get $structures() { return this.get('StructuresL'); }
+	public get $units() { return this.get('Units'); }
+	public get $structures() { return this.get('Structures'); }
 
 
 	public communication_network = new Env.CommunicationNetwork();
@@ -232,7 +231,7 @@ export class World extends Control {
 	// TODO: сделать items на землю
 	public transfer(a: Unit | Structure, target: Vector2, predicate: Parameters<Cargo['get']>[0]) {
 		const code = this.canTransfer(a, target, predicate);
-		if(is_error(code)) return code;
+		if(isError(code)) return code;
 
 		const b = this.$units.items.find(it => it.cell.isStaticRectIntersect({
 			x: it.cell.x-it.size.x/2,
@@ -280,10 +279,10 @@ export class World extends Control {
 
 		return;
 	}
-	public spawnUnit<T extends typeof Unit>(entity: Entity, rpos: Vector2, Class: T) {
+	public spawnUnit<T extends typeof Unit>(entity: Entity, rpos: Vector2, Class: T, Modules: (new (world: World, owner: Entity) => EModule<Entity>)[]) {
 		const code = this.canSpawnUnit(entity, rpos, Class);
-		if(is_error(code)) return code;
-		return this.$units.create<typeof Unit>(Class, entity.cell.new().add(rpos), this) as InstanceType<T>;
+		if(isError(code)) return code;
+		return this.$units.create<typeof Unit>(Class, entity.cell.new().add(rpos), this, Modules) as InstanceType<T>;
 	}
 
 

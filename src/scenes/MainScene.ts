@@ -13,7 +13,6 @@ import { Camera2D } from 'lib/scenes/Camera2D';
 import { GridMap } from 'lib/scenes/gui/GridMap';
 import { SystemInfo } from 'lib/scenes/gui/SystemInfo';
 import { World } from './World';
-import { MainBase } from './MainBase';
 
 import { touches, viewport } from '@/canvas';
 
@@ -23,6 +22,11 @@ export const audioContorller = new AudioContorller();
 import { ka_main } from '@/keyboard';
 import { Unit } from '@/world/unit';
 
+import { MoveModule } from '@/world/modules/MoveModule';
+import { ScanModule } from '@/world/modules/ScanModule';
+import { CargoModule } from '@/world/modules/CargoModule';
+import { ExtractModule } from '@/world/modules/ExtractModule';
+
 
 class Info extends Node2D {
 	public self!: MainScene;
@@ -30,9 +34,9 @@ class Info extends Node2D {
 	protected override _ready(): void { this.zIndex = 1000; }
 
 	protected override _draw({ ctx }: Viewport): void {
-		const center = Vector2.ZERO;
-		const a = 30;
-
+		// const center = Vector2.ZERO;
+		// const a = 30;
+		//
 		// ctx.save();
 		// ctx.beginPath();
 		// ctx.globalAlpha = 0.2;
@@ -103,9 +107,14 @@ export class MainScene extends Control {
 	}
 
 	protected override _ready(this: MainScene): void {
-		// this.$world.$structures.create(MainBase, new Vector2());
-		const unit = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world);
-		const unit2 = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world);
+		const unit = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world, [
+			MoveModule, ScanModule, CargoModule, ExtractModule
+		]);
+
+		const unit2 = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world, [
+			MoveModule, ScanModule, CargoModule, ExtractModule
+		]);
+
 		unit2.diration += 2;
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {

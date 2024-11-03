@@ -54,6 +54,7 @@ export const GUI: FC = () => {
 
 			<button onClick={editCode}>{file ? 'compile' : 'open'}</button>
 
+			<div id="terminal"></div>
 			{ selected_structure && <StructurePreview structure={selected_structure} /> }
 
 			<div gui-layer hidden={!file} style={{ width: '90vw', height: vh(70) }}>

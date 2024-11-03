@@ -8,19 +8,12 @@ declare global {
 
 export const UPDATE = Symbol('UPDATE');
 
-export const react: MethodDecorator = (target, key) => {
+export const react: MethodDecorator = (target: any, key) => {
 	if(typeof key === 'symbol') throw new Error('key symbol');
 
-	const f = (target as any)[key] as (...args: any) => any;
+	const f = target[key];
 
-	const moke = {};
-	Object.defineProperty(moke, key, Object.assign(Object.getOwnPropertyDescriptor(target, key)!, {
-		value: function(this: any, next: any) { this[UPDATE]?.(key, next); return f.call(this, next); }
-	}));
+	target[key] = function(this: any, next: any) { this[UPDATE]?.(key, next); return f.call(this, next); }
 
-	$mol_mem(moke, key);
-
-	(target as any)[key] = (moke as any)[key];
-
-	return (moke as any)[key];
+	return $mol_mem(target, key);
 };

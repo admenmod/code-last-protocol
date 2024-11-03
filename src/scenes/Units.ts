@@ -1,25 +1,28 @@
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
-import { type Parameters, math as Math } from 'ver/helpers';
+import { math as Math, Parameters } from 'ver/helpers';
 import type { Viewport } from 'ver/Viewport';
 
-import { CELL_SIZE } from '@/config';
 import { Node2D } from 'lib/scenes/Node2D';
-import { Structure } from '@/world/structure';
+import { Unit } from '@/world/unit';
+
+import { CELL_SIZE } from '@/config';
 
 
-export class StructuresL extends Node2D {
-	public '@create' = new Event<StructuresL, [o: Structure]>(this);
+export class Units extends Node2D {
+	public '@create' = new Event<Units, [o: Unit]>(this);
 
 
-	public items: Structure[] = [];
+	public items: Unit[] = [];
 
-	public create<const T extends new (...args: any) => Structure>(Class: T, ...args: Parameters<T>): InstanceType<T> {
+	public create<const T extends new (...args: any) => Unit>(Class: T, ...args: Parameters<T>): InstanceType<T> {
 		const o = new Class(...args);
 		this['@create'].emit(o);
 		this.items.push(o);
 		return o as InstanceType<T>;
 	}
+
+	public getByPos(pos: Vector2) { return this.items.find(it => it.cell.isSame(pos)); }
 
 	protected override async _init(): Promise<void> {
 		await super._init();
@@ -27,14 +30,16 @@ export class StructuresL extends Node2D {
 		this.draw_distance = Math.INF;
 	}
 
+	protected override _process(dt: number): void {
+		;
+	}
+
 	protected override _draw(viewport: Viewport): void {
 		const { ctx } = viewport;
 
 		for(let i = 0; i < this.items.length; i++) {
 			const item = this.items[i];
-			const pos = item.cell.new().inc(CELL_SIZE);
-			if(item.size.x % 2) pos.x += CELL_SIZE/2;
-			if(item.size.y % 2) pos.y += CELL_SIZE/2;
+			const pos = item.cell.new().inc(CELL_SIZE).add(CELL_SIZE/2);
 			const rot = Math.TAU/8 * item.diration;
 
 			ctx.save();
@@ -48,6 +53,4 @@ export class StructuresL extends Node2D {
 			ctx.restore();
 		}
 	}
-
-	public get [Symbol.toStringTag]() { return 'StructuresL'; }
 }

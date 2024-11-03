@@ -1,18 +1,36 @@
-// NOTE: legosy
+/*
+Было принято решение разделить проект на разные части - демо версии
+Ключевые направления:
+- User codeing - В этой версии будет прорабатыватся система программирования для пользователя (на сильно упрощенных механиках основной игры)
+- Blueprint, schemes, custom modules - В этой версии будет прораьатыватся система чертежей, системы строительства и более сложной реализации модулей (на более примитивной системе программирования пользователем, большая часть будет управлятся через gui)
+*/
+
+/*
+db:
+
+ui blueprint [blueprint:id, module's]
+
+ui schemes - build mode (size, pos)
+
+ui build [blueprint:id]
+*/
+
+yield* blueprint.dev('hover1', [
+	SCAN(100),
+	CARGO(100),
+	ENGIEN(100),
+	EXTRACT(100)
+]);
+
+// schemes.add('hover1', [192, 252], ['!1']);
+// const scheme = Scheme('hover1', [23, 323], ['!1']);
+// schemes.add(scheme);
+
+gui.on('spawn', async () => {
+	const status = await Script(build('hover1')).run();
+	if(isError(status)) console.log(status);
+});
+
 function __start__() {
 	;
-}
-function __transfer__(req, reply) {
-	if(req.memory.role === 'transfer') return reply.allow();
-}
-function __unit_conneted__(unit, unit_public_scripts) {
-	if(memory.units_role.get(unit).type === 'harvester') {
-		if(memory.enemy_detected) unit.overrideOrder(moveInToBase, unit);
-		if(unit_public_scripts.ping) unit.injectOrder(unit_public_scripts.ping);
-	}
-}
-
-function* moveInToBase(unit) {
-	yield* unit.c.moveTo(this.position);
-	yield* unit.c.entryInStructure(this);
 }

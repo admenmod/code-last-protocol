@@ -1,4 +1,4 @@
-import { Event, EventDispatcher } from 'ver/events';
+import { EventDispatcher } from 'ver/events';
 
 
 export interface APIResult<T> {
@@ -47,17 +47,6 @@ export class Task<T = any> implements PromiseLike<T> {
 
 export class Executor extends EventDispatcher {
 	public tasks: Task[] = [];
-
-	constructor(
-		public ENV: Record<string, any>,
-		public API: Record<string, (...args: any) => APIResult<any>>
-	) { super(); }
-
-	public request(id: string, ...args: any) {
-		if(!(id in this.API)) throw new Error('invalid request api');
-
-		return this.addTask(this.API[id](...args));
-	}
 
 	public addTask<T>({ time, cache, task }: APIResult<T>): Task<T> {
 		if(time !== null && (time < 0 || time < MIN_TIME)) throw new Error('The time cannot be zero or less MIN_TIME');

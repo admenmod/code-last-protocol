@@ -8,7 +8,7 @@ import { canvas, touches, viewport } from '@/canvas';
 import { $selected_structure, exit, init, process, render } from './state';
 
 import { NAME } from './index';
-import { MainScene } from '@/scenes/MainScene';
+import { MainScene } from '@/B/scenes/MainScene';
 import { kii } from '@/keyboard';
 
 

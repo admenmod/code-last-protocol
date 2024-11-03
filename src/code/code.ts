@@ -1,3 +1,6 @@
+export const isError = (value: any) => typeof value === 'symbol';
+
+
 export const CODE = {
 	ALL: Symbol('ALL'),
 	ERR_STATUS: Symbol('ERR_STATUS'),
