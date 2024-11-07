@@ -1,27 +1,18 @@
-import { Vector2 } from 'ver/Vector2';
+import { z } from 'zod';
 import { Event, EventDispatcher } from 'ver/events';
-import { codeShell } from 'ver/codeShell';
-import {
-	object as Object,
-	math as Math,
-	function_constructors,
-	Generator,
-	getTypeFunction,
-	delay
-} from 'ver/helpers';
+import { Fn, object as Object } from 'ver/helpers';
 
-import { Task } from './code/Executor';
-import { EModule } from './world/EModule';
+import { modules, mod_env, mod_zod } from '@/modules';
+import { Module } from '@/modules/Module';
+import type { APIResult } from '@/code/Executor';
+import { CODE } from '@/code/code';
+import { Entity } from '@/game/Entity';
 
-type rec_fns = {
-	Function: (this: any, ...args: any) => any;
-	AsyncFunction: (this: any, ...args: any) => Promise<any>;
-	GeneratorFunction: (this: any, ...args: any) => Generator<any, any, any>;
-	AsyncGeneratorFunction: (this: any, ...args: any) => AsyncGenerator<any, any, any>;
-};
-type entry_points<T extends Record<string, keyof typeof function_constructors>> = {
-	[K in keyof T]: rec_fns[T[K]];
-};
+import { Generator, delay } from 'ver/helpers';
+
+import { Task } from '@/code/Executor';
+import { CodeSpace } from '@/code/CodeSpace';
+
 
 export interface IScript {
 	(this: any, ...args: any): Generator<any, any, any>;
@@ -189,75 +180,116 @@ export class Script<This = any,
 }
 
 
-export class CodeSpace<
-	const ctx extends any,
-	const env extends Record<string, any>,
-	const args extends Record<string, any>,
-	const entry extends Record<string, keyof typeof function_constructors>,
-	const source extends string = string
-> {
-	public isActive: boolean = true;
+const ID = 'script';
+type ID = typeof ID;
 
-	public code: string = '';
-	public entry_points: entry_points<entry> = {} as any;
+// type Iter = Generator<[ID, string, ...any[]], any, any>;
 
-	public ctx: ctx; public env: env; public args: args; public entry: entry; public source: source;
-
-	constructor({ ctx, env, args, entry, source }: { ctx: ctx, env: env, args: args, entry: entry, source: source }) {
-		this.ctx = ctx;
-		this.env = env;
-		this.args = args;
-		this.entry = entry;
-		this.source = source;
-	}
-
-	public run(code: string): unknown {
-		this.code = code;
-
-		const env = Object.create(Object.fullassign({}, this.env, {
-			Vector2,
-			Math, JSON, console,
-			Object, String, Number, Boolean, BigInt
-		}));
-		Object.defineProperty(env, 'global', { value: env, writable: false, enumerable: false, configurable: false });
-		Object.defineProperty(env, CodeSpace.REG_SETTER, {
-			set: (v: any) => {
-				if(typeof v === 'function') {
-					if(v.constructor === function_constructors[this.entry[v.name]]) {
-						if(this.entry[v.name] === getTypeFunction(v)) (this.entry_points as any)[v.name] = v;
-					} else throw new Error(`type function ${v.name} !== ${this.entry[v.name]}`);
-				}
-			}, enumerable: false, configurable: true
-		});
-
-		const entrys = (Object.keys(this.entry) as string[]).map(it => `global['${CodeSpace.REG_SETTER}'] = ${it}; `).join('');
-		return codeShell(`${entrys}delete global['${CodeSpace.REG_SETTER}']; ${code}`, env, {
-			arguments: Object.keys(this.args).join(', '),
-			source: this.source
-		}).apply(this.ctx, Object.values(this.args) as any);
-	}
-
-
-	public static readonly REG_SETTER = 'r e g i s t e r';
+export declare namespace ScriptModule {
+	export interface IOwner extends Entity<[ID]> {}
 }
 
+type IOwner = ScriptModule.IOwner;
 
-export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatcher {
-	public scripts: [owner: CodeSpace<any, any, any, any>, token: symbol, script: Script][] = [];
+const zod_model = z.object({});
 
-	constructor(public executors: T) { super(); }
+// const TIME = 1000;
 
-	public create_script(
-		owner: CodeSpace<any, any, any, any>, token: symbol,
-		_script: (this: any, ...args: any) => Generator<any, any, any>
-	) {
-		const script = new Script(_script);
+const ENV = (module: ScriptModule) => {
+	const script = Object.assign((script: IScript) => module.create_script(script), {
+		mono: (s: IScript) => {
+			const api = module.scripts.get(s) || script(s);
+			if(!module.scripts.has(s)) module.scripts.set(s, api);
+			return api;
+		},
+		*delay(...args: Parameters<typeof delay>) { yield [ID, 'delay', ...args] }
+	});
 
-		this.scripts.push([owner, token, script]);
+	return {
+		script,
+		get memory() { return module.memory; },
+		*delay(...args: Parameters<typeof delay>) { yield [null, 'delay', ...args] } };
+};
 
-		script.on('run', () => {
-			this.script_next(owner, script);
+const API = {
+	delay: (_module, ...args: Parameters<typeof delay>) => ({ time: null, task: () => delay(...args) })
+} satisfies Record<string, (module: ScriptModule, ...args: any) => APIResult<any>>;
+
+
+type ctx = any;
+interface ICodeEnv {}
+type IUnitCodeEntry = { __start__: 'Function', __transfer__: 'Function' };
+
+class ScriptModule extends Module<ID, IOwner> {
+	public memory = Object.create(null);
+
+	public ctx: ctx = null;
+	public env: Record<string, any> = Object.create(null);
+	public args = { ...CODE };
+	// HACK:
+	public source = 'script';
+
+	public _events: Record<string, Event> = Object.create(null);
+	public _scripts: Script[] = [];
+
+	public scripts = new Map<IScript, ReturnType<this['create_script']>>;
+
+	public codespace!: CodeSpace<ctx, ICodeEnv, typeof CODE, IUnitCodeEntry>;
+
+	constructor(owner: IOwner) {
+		super(ID, owner, API);
+
+		this.ready.once(() => {
+			for(const module of owner.modules) Object.fullassign(this.env, mod_env[module.id](module as any));
+
+			const on = (id: string, fn: Fn, priority?: number, tag?: string | symbol, once?: boolean, shift?: boolean) => {
+				if(!(id in this._events)) this._events[id] = new Event(this.ctx);
+				return this._events[id].on(fn, priority, tag, once, shift);
+			};
+			const once = (id: string, fn: Fn, priority?: number, tag?: string | symbol, shift?: boolean) => {
+				return on(id, fn, priority, tag, true, shift);
+			};
+			const off = (id: string, fn?: Fn | string | symbol) => {
+				if(!(id in this._events)) return;
+				return this._events[id].off(fn as any);
+			};
+			const emit = (id: string, ...args: any) => {
+				if(!(id in this._events)) return;
+				return this._events[id].emit(...args);
+			};
+
+			Object.assign(this.env, { on, once, off, emit });
+
+			this.codespace = new CodeSpace({
+				ctx: this.ctx, env: this.env, args: this.args, source: this.source,
+				entry: { __start__: 'Function', __transfer__: 'Function' }
+			});
 		});
+	}
+
+	public run(code: string) {
+		for(const id in this._events) {
+			this._events[id].off();
+			delete this._events[id];
+		}
+
+		this.clear_scripts();
+		this.scripts.clear();
+
+		const r = this.codespace.run(code);
+		const __start__ = this.codespace.entry_points.__start__;
+
+		if(!__start__) throw new Error('function "__start__" is not found');
+		__start__.apply(this.ctx);
+
+		return r;
+	}
+
+	public create_script(_script: (this: any, ...args: any) => Generator<any, any, any>) {
+		const script = new Script(_script);
+		this._scripts.push(script);
+
+		script.on('run', () => void this.script_next(script));
 
 		const r = {
 			run: (_this: any, ...args: any) => (script.run(_this, ...args), r),
@@ -276,11 +308,11 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 
 		return r;
 	}
-	public clear_scripts(token: symbol) {
-		let l; while(~(l = this.scripts.findIndex(([, token_]) => token_ === token))) this.scripts.splice(l, 1)[0][2].reset(void 0);
+	public clear_scripts() {
+		for(let i = this._scripts.length - 1; i >= 0; --i) this._scripts[i].reset(CODE.FORCED_RETURN);
 	}
 
-	public async script_next(owner: CodeSpace<any, any, any, any>, script: Script) {
+	public async script_next(script: Script) {
 		console.groupEnd();
 		// if(!owner.isActive || !script.iterator || script.isStop()) return;
 
@@ -297,7 +329,7 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 			throw 0;
 		} else {
 			const [module_id, id, ...args] = value as [string, string, ...any[]];
-			const module = this.executors.find(it => it.module_id === module_id);
+			const module = this.owner.modules.find(it => it.id === module_id);
 
 			if(!module) throw new Error('unknown module');
 			promise = module.request(id, ...args);
@@ -306,7 +338,18 @@ export class ScriptsSystem<const T extends EModule<any>[]> extends EventDispatch
 		promise.then(data => {
 			if(script.done) return;
 			script.out_data = data;
-			this.script_next(owner, script);
+			this.script_next(script);
 		});
 	}
+}
+
+
+mod_env[ID] = ENV;
+mod_zod[ID] = zod_model;
+modules[ID] = ScriptModule;
+
+declare module '@/modules' {
+	namespace mod_env { let script: typeof ENV; }
+	namespace mod_zod { let script: typeof zod_model; }
+	namespace modules { let script: typeof ScriptModule; }
 }

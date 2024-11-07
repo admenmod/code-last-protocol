@@ -3,6 +3,7 @@
  * базовые конструкции - entry_points, события, сценарии
  * происходит какое то событие -> запускается сценари[йи]
  * скрипты могут быть цикличными, скрипт проверяет данные -> вызывает событие
+ * скрипты могут выполнятся "паролельно" но разные модули требуют разных условий для работы
 */
 
 if(!memory.base_position) memory.base_position = new Vector2();
@@ -38,14 +39,14 @@ on('enemy detected', async () => {
 // CUSTOM_SCRIPTS //
 function* main() {
 	while(true) {
-		if(cargo_filled) yield* moveToBase();
+		if(cargo.filled) yield* moveToBase();
 		else yield* searchAndExtractResource();
 	}
 }
 
 function* moveToBase() {
-	yield* moveTo(memory.base_position);
-	yield* transfer(base_position, ALL);
+	yield* move.to(memory.base_position);
+	yield* cargo.transfer(base_position, ALL);
 }
 
 function* detectEnemy() {
@@ -65,11 +66,11 @@ function* searchAndExtractResource() {
 		if(Math.random() < 0.2) yield* turn(1);
 		else if(Math.random() < 0.2) yield* turn(-1);
 
-		if(ERR_BIG_DIFF_HEIGHT === (yield* moveForward(3))) yield* turn(1);
+		if(ERR_BIG_DIFF_HEIGHT === (yield* move.forward(3))) yield* turn(1);
 	} else {
-		yield* moveTo(resource.pos);
+		yield* move.to(resource.pos);
 
-		while(!cargo_filled) {
+		while(!cargo.filled) {
 			if(yield* extract(resource)) continue;
 			else break;
 		}

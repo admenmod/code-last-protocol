@@ -1,9 +1,9 @@
 import { NAME } from './index';
 import type { FunctionComponent as FC } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { $isGKIISelected, $selected_file, $selected_structure, god_global_event } from './state';
+import { $isGKIISelected, $selected_file, $selected_entity, god_global_event } from './state';
 import { useStore } from '@nanostores/preact';
-import { StructurePreview } from './gui/StructurePreview';
+import { EntityPreview } from './gui/StructurePreview';
 import { kii } from '@/keyboard';
 // import { View } from '@/gui/View';
 // View;
@@ -24,7 +24,7 @@ export const GUI: FC = () => {
 
 	const file = useStore($selected_file);
 	const isGKIISelected = useStore($isGKIISelected);
-	const selected_structure = useStore($selected_structure);
+	const selected_entity = useStore($selected_entity);
 
 	const input = useRef<HTMLTextAreaElement>(null);
 
@@ -55,7 +55,7 @@ export const GUI: FC = () => {
 			<button onClick={editCode}>{file ? 'compile' : 'open'}</button>
 
 			<div id="terminal"></div>
-			{ selected_structure && <StructurePreview structure={selected_structure} /> }
+			{ selected_entity && <EntityPreview entity={selected_entity} /> }
 
 			<div gui-layer hidden={!file} style={{ width: '90vw', height: vh(70) }}>
 				<p style={{ fontFamily: 'monospace' }}>{file?.name} ({file?.path})</p>

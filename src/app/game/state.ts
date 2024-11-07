@@ -7,7 +7,7 @@ import { NAME } from './index';
 
 import { $selected_scene_name, $start } from '@/state';
 import { history_back } from '@/global-events';
-import type { Structure } from '@/world/structure';
+import type { Entity } from '@/game/Entity';
 import { kii } from '@/keyboard';
 
 
@@ -22,7 +22,7 @@ export const god_global_event = new EventAsFunction<null, [code: string]>(null);
 
 export const $isGKIISelected = atom(false);
 export const $selected_file = atom<IEditFile | null>(null);
-export const $selected_structure = atom<Structure | null>(null);
+export const $selected_entity = atom<Entity | null>(null);
 
 export const process = new EventAsFunction<null, [dt: number]>(null);
 export const render = new EventAsFunction<null, [viewport: Viewport]>(null);
@@ -54,7 +54,7 @@ init.on(() => {
 	kii.on('blur', () => $isGKIISelected.set(false));
 
 	history_back.on(() => {
-		if($selected_structure.get() === null && $selected_scene_name.get() === NAME) return void $start('menu');
-		$selected_structure.set(null);
+		if($selected_entity.get() === null && $selected_scene_name.get() === NAME) return void $start('menu');
+		$selected_entity.set(null);
 	});
 });

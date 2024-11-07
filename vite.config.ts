@@ -6,7 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 
 const port = 3000;
-const host = (() => {
+const host = 'localhost'; (() => {
 	const nets = os.networkInterfaces();
 
 	for(const id in nets) {

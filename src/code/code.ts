@@ -2,6 +2,8 @@ export const isError = (value: any) => typeof value === 'symbol';
 
 
 export const CODE = {
+	FORCED_RETURN: Symbol('FORCED_RETURN'),
+
 	ALL: Symbol('ALL'),
 	ERR_STATUS: Symbol('ERR_STATUS'),
 	NOT_ALLOWED: Symbol('NOT_ALLOWED'),

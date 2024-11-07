@@ -1,15 +1,15 @@
+import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import { math as Math } from 'ver/helpers';
 
-import { modules } from '../modules';
-import { Module } from '@/game/EModule';
-import { IScanData } from '@/scenes/World';
-import { dirToVec2, TDiration } from '@/utils/cell';
-import { world } from '@/game/world';
+import { modules, mod_env, mod_zod, EntityParams } from '@/modules';
+import { Module } from '@/modules/Module';
+import { IScanData } from '@/game/types';
+import { dirToVec2, direction } from '@/utils/cell';
+import { I, world } from '@/game/world';
 import type { APIResult } from '@/code/Executor';
 import { CODE } from '@/code/code';
-import { I } from '@/scenes/WorldMap';
-import { Entity } from '../Entity';
+import { Entity } from '@/game/Entity';
 // import { c } from '@/animations';
 
 
@@ -19,10 +19,16 @@ type ID = typeof ID;
 type Iter = Generator<[ID, string, ...any[]], any, any>;
 
 export declare namespace MoveModule {
-	export interface IOwner extends Entity {}
+	export interface IOwner extends Entity<[ID]> {}
 }
 
 type IOwner = MoveModule.IOwner;
+
+const zod_model = z.object({
+	[ID]: z.object({
+		force: z.number().min(1)
+	})
+});
 
 // function* unitMoveAnim(unit: Unit, rpos: Vector2) {
 // 	const fix = unit.cell.new();
@@ -34,18 +40,18 @@ type IOwner = MoveModule.IOwner;
 
 const TIME = 1000;
 
-const ENV = (module: MoveModule) => ({
-	*turn(dir?: number): Iter {
+const ENV = (module: MoveModule) => {
+	function* turn(dir?: number): Iter {
 		if(typeof dir !== 'number') throw new Error('"turn" invalid argumnets');
 		yield [ID, 'turn', dir];
-	},
-	*moveForward(c: number): Iter {
+	}
+	function* moveForward(c: number): Iter {
 		for(let i = 0; i < c; i++) {
 			const code = yield [ID, 'moveForward'];
 			if(typeof code === 'symbol') return code;
 		}
-	},
-	*moveTo(target?: Vector2, steps: number = Math.INF): Iter {
+	}
+	function *moveTo(target?: Vector2, steps: number = Math.INF): Iter {
 		if(!target) throw new Error('"moveTo" invalid argumnets');
 		if(module.owner.cell.isSame(target)) return false;
 
@@ -53,17 +59,23 @@ const ENV = (module: MoveModule) => ({
 			if(yield [ID, 'moveTo', target.new()]) continue;
 			return false;
 		}
-	},
-	get diration() { return module.owner.diration as any as () => TDiration; },
-	getForwardCell(data?: IScanData) {
-		if(typeof data === 'undefined') throw new Error('"getForwardCell" invalid argumnets');
-
-		return data.find(it => it.pos.isSame(dirToVec2(module.owner.diration).add(module.owner.cell)));
 	}
-});
+
+	return {
+		turn, move: { to: moveTo, forward: moveForward },
+
+		get direction() { return module.owner.direction as any as () => direction; },
+
+		getForwardCell(data?: IScanData) {
+			if(typeof data === 'undefined') throw new Error('"getForwardCell" invalid argumnets');
+
+			return data.find(it => it.pos.isSame(dirToVec2(module.owner.direction).add(module.owner.cell)));
+		}
+	}
+};
 
 const API = {
-	turn: (module, dir: number) => ({ time: TIME, task: () => { module.owner.diration += Math.sign(dir); }}),
+	turn: (module, dir: number) => ({ time: TIME, task: () => { module.owner.direction += Math.sign(dir); }}),
 	moveTo: (module, pos: Vector2) => ({
 		time: module.canMoveToPos(module.owner.cell.new().sub(pos), 0.1) ? TIME : 100,
 		task: () => module.moveTo(pos, 1)
@@ -72,10 +84,13 @@ const API = {
 } satisfies Record<string, (module: MoveModule, ...args: any) => APIResult<any>>;
 
 
-class MoveModule extends Module<IOwner> {
-	constructor(owner: IOwner) {
+export class MoveModule extends Module<ID, IOwner> {
+	public force: number;
+
+	constructor(owner: IOwner, { move }: EntityParams<[ID]>) {
 		super(ID, owner, API);
-		this.ENV = ENV(this);
+
+		this.force = move.force;
 	}
 
 	public canMoveToPos(rpos: Vector2, force: number) {
@@ -102,15 +117,17 @@ class MoveModule extends Module<IOwner> {
 		return this.move(pos.new().sub(this.owner.cell).sign().inc(speed));
 	}
 	public moveForward(speed: number) {
-		return this.move(dirToVec2(this.owner.diration).inc(speed));
+		return this.move(dirToVec2(this.owner.direction).inc(speed));
 	}
 }
 
 
+mod_env[ID] = ENV;
+mod_zod[ID] = zod_model;
 modules[ID] = MoveModule;
 
-declare module '../modules' {
-	namespace modules {
-		let move: typeof MoveModule;
-	}
+declare module '@/modules' {
+	namespace mod_env { let move: typeof ENV; }
+	namespace mod_zod { let move: typeof zod_model; }
+	namespace modules { let move: typeof MoveModule; }
 }

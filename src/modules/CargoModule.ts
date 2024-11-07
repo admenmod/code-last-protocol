@@ -1,7 +1,8 @@
+import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import type { APIResult } from '@/code/Executor';
 import { Module } from './Module';
-import { modules } from '@/modules';
+import { EntityParams, mod_env, mod_zod, modules } from '@/modules';
 import { CODE, isError } from '@/code/code';
 import { Cargo } from '@/utils/cargo';
 import { world } from '@/game/world';
@@ -14,20 +15,28 @@ type ID = typeof ID;
 type Iter = Generator<[ID, string, ...any[]], any, any>;
 
 export declare namespace CargoModule {
-	export interface IOwner extends Entity {}
+	export interface IOwner extends Entity<[ID]> {}
 }
 
 type IOwner = CargoModule.IOwner;
 
 
+const zod_model = z.object({
+	[ID]: z.object({
+		size: z.number()
+	})
+});
+
 const TIME = 1000;
 
 const ENV = (module: CargoModule) => ({
-	get cargo_filled() { return module.cargo.fullness_normaloze > 0.9; },
+	cargo: {
+		get filled() { return module.cargo.fullness_normaloze > 0.9; },
 
-	*transfer(target?: Vector2): Iter {
-		if(!target) throw new Error('"transfer" invalid argumnets');
-		return yield [ID, 'transfer', target.new()];
+		*transfer(target?: Vector2): Iter {
+			if(!target) throw new Error('"transfer" invalid argumnets');
+			return yield [ID, 'transfer', target.new()];
+		}
 	}
 });
 
@@ -36,26 +45,28 @@ const API = {
 	transfer: (module, target: Vector2) => ({ time: TIME, task: () => module.transfer(target, () => true) })
 } satisfies Record<string, (module: CargoModule, ...args: any) => APIResult<any>>;
 
-export interface IParams {
-	cargo_size: number;
-}
+export class CargoModule extends Module<ID, IOwner> {
+	public cargo: Cargo;
 
-export class CargoModule extends Module<ID, IOwner, IParams> {
-	public cargo = new Cargo(10);
+	constructor(owner: IOwner, { cargo }: EntityParams<[ID]>) {
+		super(ID, owner, API);
 
-	constructor(owner: IOwner, p: CargoModule) { super(ID, owner, API); }
+		if(!cargo?.size) throw new Error('invalid cargo size');
+
+		this.cargo = new Cargo(cargo.size);
+	}
 
 	public canTransfer(target: Vector2, predicate: Parameters<Cargo['get']>[0]) {
 		const diff = target.new().sub(this.owner.cell);
 		if(Math.abs(diff.x) > 1 || Math.abs(diff.y) > 1) return CODE.ERR_NOT_IN_RANGE;
 
-		const a = this.owner.modules.find(it => it instanceof CargoModule)!;
-		const b = world.entitys.find(it => it.modules.find(it => it instanceof CargoModule) && it.cell.isStaticRectIntersect({
+		const a = this.owner.get(CargoModule)!;
+		const b = world.entitys.find(it => it.get(CargoModule) && it.cell.isStaticRectIntersect({
 			x: it.cell.x-it.size.x/2,
 			y: it.cell.y-it.size.y/2,
 			w: it.size.y,
 			h: it.size.y
-		}))?.modules.find(it => it instanceof CargoModule);
+		}))?.get(CargoModule);
 
 		if(!b) return CODE.ERR_TARGET_NOT_FOUND;
 
@@ -73,13 +84,13 @@ export class CargoModule extends Module<ID, IOwner, IParams> {
 		const code = this.canTransfer(target, predicate);
 		if(isError(code)) return code;
 
-		const a = this.owner.modules.find(it => it instanceof CargoModule)!;
-		const b = world.entitys.find(it => it.modules.find(it => it instanceof CargoModule) && it.cell.isStaticRectIntersect({
+		const a = this.owner.get(CargoModule)!;
+		const b = world.entitys.find(it => it.get(CargoModule) && it.cell.isStaticRectIntersect({
 			x: it.cell.x-it.size.x/2,
 			y: it.cell.y-it.size.y/2,
 			w: it.size.y,
 			h: it.size.y
-		}))?.modules.find(it => it instanceof CargoModule)!;
+		}))?.get(CargoModule)!;
 
 		const cargo_ = a.cargo;
 		const _cargo = b.cargo;
@@ -89,10 +100,14 @@ export class CargoModule extends Module<ID, IOwner, IParams> {
 }
 
 
+mod_env[ID] = ENV;
+mod_zod[ID] = zod_model;
 modules[ID] = CargoModule;
 
-declare module '../modules' {
-	namespace modules {
-		let cargo: typeof CargoModule;
-	}
+declare module '@/modules' {
+	namespace mod_env { let cargo: typeof ENV; }
+	namespace mod_zod { let cargo: typeof zod_model; }
+	namespace modules { let cargo: typeof CargoModule; }
+
+	interface IEntityParams extends z.infer<typeof zod_model> {}
 }

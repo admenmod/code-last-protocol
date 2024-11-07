@@ -5,10 +5,10 @@ import { ControllersSystem } from 'lib/scenes/Control';
 
 import { AnimationManager } from '@/animations';
 import { canvas, touches, viewport } from '@/canvas';
-import { $selected_structure, exit, init, process, render } from './state';
+import { $selected_entity, exit, init, process, render } from './state';
 
 import { NAME } from './index';
-import { MainScene } from '@/B/scenes/MainScene';
+import { MainScene } from '@/scenes/MainScene';
 import { kii } from '@/keyboard';
 
 
@@ -55,10 +55,10 @@ export const anims = new AnimationManager();
 process.on(dt => { for(const anim of anims.anims) anim.tick(dt); }, -1000);
 
 
-controllersSystem.on('input:click', () => $selected_structure.set(null));
+controllersSystem.on('input:click', () => $selected_entity.set(null));
 
 init.once(() => {
 	kii.on('keyup:input', e => {
-		if(e.key === 'Escape') return void $selected_structure.set(null);
+		if(e.key === 'Escape') return void $selected_entity.set(null);
 	});
 });

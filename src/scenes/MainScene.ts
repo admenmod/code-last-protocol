@@ -1,7 +1,5 @@
 import { Vector2 } from 'ver/Vector2';
-import { State } from 'ver/State';
 import { math as Math } from 'ver/helpers';
-import { Animation } from 'ver/Animation';
 import type { Viewport } from 'ver/Viewport';
 import type { KeymapperOfActions } from 'ver/KeymapperOfActions';
 
@@ -12,7 +10,6 @@ import { Sprite } from 'lib/scenes/Sprite';
 import { Camera2D } from 'lib/scenes/Camera2D';
 import { GridMap } from 'lib/scenes/gui/GridMap';
 import { SystemInfo } from 'lib/scenes/gui/SystemInfo';
-import { World } from './World';
 
 import { touches, viewport } from '@/canvas';
 
@@ -20,12 +17,16 @@ import { AudioContorller } from 'lib/AudioController';
 export const audioContorller = new AudioContorller();
 
 import { ka_main } from '@/keyboard';
-import { Unit } from '@/world/unit';
 
-import { MoveModule } from '@/world/modules/MoveModule';
-import { ScanModule } from '@/world/modules/ScanModule';
-import { CargoModule } from '@/world/modules/CargoModule';
-import { ExtractModule } from '@/world/modules/ExtractModule';
+import '@/modules/ScriptModule';
+import '@/modules/MoveModule';
+import '@/modules/ScanModule';
+import '@/modules/CargoModule';
+import '@/modules/ExtractModule';
+
+import { SIZE_X, SIZE_Y, world } from '@/game/world';
+import { CELL_SIZE } from '@/config';
+import { god_global_event } from '@/app/game';
 
 
 class Info extends Node2D {
@@ -68,18 +69,17 @@ export class MainScene extends Control {
 		GridMap,
 		Info,
 		SystemInfo,
-		World
 	}}
 	// aliases
 	public get $camera() { return this.get('Camera2D'); }
 	public get $gridMap() { return this.get('GridMap'); }
 	public get $info() { return this.get('Info'); }
-	public get $world() { return this.get('World'); }
 
 	public sensor_camera = new SensorCamera();
 
 	protected override async _init(this: MainScene): Promise<void> {
 		await super._init();
+		this.draw_distance = Math.INF;
 
 		this.$camera.viewport = viewport;
 		this.$camera.current = true;
@@ -90,39 +90,64 @@ export class MainScene extends Control {
 			// this.$camera.position.moveTime(this.$world.$units.items[0].cell.new().inc(CELL_SIZE), 5);
 			// this.$camera.rotation += Math.mod(this.$ship.rotation-this.$camera.rotation, -Math.PI, Math.PI) / 5;
 
-
-			this.$gridMap.scroll.set(this.$camera.position);
-			this.$gridMap.position.set(this.$camera.position);
-			this.$gridMap.size.set(this.$camera.size.new().inc(this.$camera.scale)).inc(5);
+			// this.$gridMap.scroll.set(this.$camera.position);
+			// this.$gridMap.position.set(this.$camera.position);
+			// this.$gridMap.size.set(this.$camera.size.new().inc(this.$camera.scale)).inc(5);
 		});
 
-		this.$gridMap.tile.set(64, 64);
+		this.$gridMap.position.set();
+		this.$gridMap.size.set(SIZE_X, SIZE_Y);
+		this.$gridMap.tile.set(CELL_SIZE);
 
 		this.$info.self = this;
 
 
-		viewport.on('resize', size => {
-			const s = size.new().div(2);
-		}).call(viewport, viewport.size);
+		// viewport.on('resize', size => {
+		// 	const s = size.new().div(2);
+		// }).call(viewport, viewport.size);
 	}
 
 	protected override _ready(this: MainScene): void {
-		const unit = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world, [
-			MoveModule, ScanModule, CargoModule, ExtractModule
-		]);
+		const base = world.create(new Vector2(0, 0), ['script', 'scan', 'cargo'], {
+			height: 4,
+			size: new Vector2(4, 4),
+			direction: 0,
 
-		const unit2 = this.$world.$units.create(Unit, new Vector2(0, 0), this.$world, [
-			MoveModule, ScanModule, CargoModule, ExtractModule
-		]);
+			scan: { force: 1 },
+			cargo: { size: 10 }
+		});
 
-		unit2.diration += 2;
+		const unit = world.create(new Vector2(0, 0), ['script', 'move', 'scan', 'cargo', 'extract'], {
+			height: 1,
+			size: new Vector2(4, 4),
+			direction: 0,
+
+			move: { force: 1 },
+			scan: { force: 1 },
+			cargo: { size: 10 },
+			extract: { force: 1 }
+		});
+
+		(async () => {
+			await base.ready();
+			const base_code = await fetch(`${location.origin}/user/structure.js`).then(data => data.text());
+			unit.get('script')!.run(base_code);
+
+			await unit.ready();
+			const unit_code = await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
+			unit.get('script')!.run(unit_code);
+
+			god_global_event.on(code => {
+				unit.get('script')!.run(code);
+			});
+		})();
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {
 			dir = dir.replace('Arrow', '');
 
-			if(dir === 'Left')	unit.diration -= 1;
-			if(dir === 'Right')	unit.diration += 1;
-			if(dir === 'Up') this.$world.moveForward(unit, 1);
+			if(dir === 'Left')	unit.direction -= 1;
+			if(dir === 'Right')	unit.direction += 1;
+			if(dir === 'Up') unit.get('move')!.moveForward(1);
 		};
 		ka_main.register(['ArrowLeft'], onmove);
 		ka_main.register(['ArrowRight'], onmove);
@@ -130,14 +155,58 @@ export class MainScene extends Control {
 		ka_main.register(['ArrowDown'], onmove);
 
 		ka_main.register(['s'], () => {
-			this.$world.unitRadarScan(unit);
+			unit.get('scan')!.scan();
 		});
 		ka_main.register(['w'], () => {
-			this.$world.unitExtractForward(unit, 1);
+			unit.get('extract')!.extract();
 		});
 	}
 
 	protected override _process(this: MainScene, dt: number): void {
-		;
+		world.update(dt);
+	}
+
+	protected override _draw({ ctx }: Viewport): void {
+		ctx.save(); // world map
+		ctx.imageSmoothingEnabled = false;
+
+		ctx.fillStyle = '#000000';
+		ctx.fillRect(-SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
+
+		ctx.globalAlpha = 0.5;
+		ctx.drawImage(world.canvas_map.canvas, -SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
+		ctx.globalAlpha = 1;
+		ctx.restore();
+
+		for(let i = 0; i < world.entitys.length; i++) {
+			const entity = world.entitys[i];
+
+			const pos = entity.cell.new().inc(CELL_SIZE)
+			const rot = Math.TAU/8 * entity.direction;
+			const size = entity.size.new().inc(CELL_SIZE);
+
+			if(entity.size.x % 2) pos.x += CELL_SIZE/2;
+			if(entity.size.y % 2) pos.y += CELL_SIZE/2;
+
+			ctx.save();
+			ctx.translate(pos.x, pos.y);
+			ctx.rotate(rot);
+
+			if(entity.get('move')) {
+				const c = 8;
+				ctx.fillStyle = '#eeee33';
+				ctx.beginPath();
+				ctx.moveTo(-c, 0);
+				ctx.lineTo(+c, -c/2);
+				ctx.lineTo(+c, +c/2);
+				ctx.closePath();
+				ctx.fill();
+			} else {
+				ctx.fillStyle = '#3333ee';
+				ctx.fillRect(-size.x/2, -size.y/2, size.x, size.y);
+			}
+
+			ctx.restore();
+		}
 	}
 }

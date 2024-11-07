@@ -1,10 +1,13 @@
+import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
-import { Module } from '../EModule';
+import { Module } from '@/modules/Module';
 import { APIResult } from '@/code/Executor';
-import { World, world } from '@/game/world';
+import { I, world } from '@/game/world';
 import { CODE, isError } from '@/code/code';
-import { I } from '@/scenes/WorldMap';
-import { Cargo } from '@/utils/cargo';
+import { Entity } from '@/game/Entity';
+import { mod_env, mod_zod, modules } from '@/modules';
+import { IBlueprint } from '@/game/types';
+import { codenv } from '@/codenv';
 
 
 const ID = 'build';
@@ -13,48 +16,67 @@ type ID = typeof ID;
 type Iter = Generator<[ID, string, ...any[]], any, any>;
 
 export declare namespace BuildModule {
-	export interface IOwner extends World.Object {
-	}
+	export interface IOwner extends Entity<[ID]> {}
 }
-
 type IOwner = BuildModule.IOwner;
+
+const zod_model = z.object({});
 
 
 const TIME = 1000;
 
-const ENV = (module: BuildModule) => ({
-	*build(): Iter {
-		return yield ['build', 'build'];
+const ENV = (_module: BuildModule) => ({
+	*build(blueprint: IBlueprint | string): Iter {
+		return yield [ID, 'build', blueprint];
 	}
 });
 
 const API = {
-	build: (module, id: string) => ({ time: TIME, task: () => module.spawnUnit() })
+	build: (module, blueprint: IBlueprint, rpos: Vector2) => ({ time: TIME, task: () => module.spawn(blueprint, rpos) })
 } satisfies Record<string, (module: BuildModule, ...args: any) => APIResult<any>>;
 
-export class BuildModule extends Module<IOwner> {
+export class BuildModule extends Module<ID, IOwner> {
 	constructor(owner: IOwner) {
 		super(ID, owner, API);
-		this.ENV = ENV(this);
+
+		this.ready.once(() => {
+			if(!this.owner.get('cargo')) throw new Error('build module require cargo module');
+		})
 	}
 
-	public canSpawnUnit(entity: Entity, rpos: Vector2, Class: typeof Unit) {
+	public canSpawn(blueprint: IBlueprint, rpos: Vector2 = Vector2.ZERO) {
+		const bp = typeof blueprint === 'string' ? codenv.blueprints[blueprint] : blueprint;
+
 		if(rpos.isSame(Vector2.ZERO)) return CODE.TARGET_DISTANCE_ZERO;
 		if(Math.abs(rpos.x) > 1 || Math.abs(rpos.y) > 1) return CODE.ERR_NOT_IN_RANGE;
 
-		const target = entity.cell.new().add(rpos);
+		const target = this.owner.cell.new().add(rpos);
 		const TCI = I(target); // Target cell index
-		const ECI = I(entity.cell.new()); // Entity cell index
+		const ECI = I(this.owner.cell.new()); // Entity cell index
 
-		if(Math.abs(this.$map.height_map[ECI] - this.$map.height_map[TCI]) > 0.1) return CODE.ERR_BIG_DIFF_HEIGHT;
-
-		if('cargo' in entity) (entity.cargo as Cargo).search(...Class.build_resources);
+		// HACK:
+		if(Math.abs(world.height_map[ECI] - world.height_map[TCI]) > 0.1) return CODE.ERR_BIG_DIFF_HEIGHT;
 
 		return;
 	}
-	public spawnUnit<T extends typeof Unit>(entity: Entity, rpos: Vector2, Class: T, Modules: (new (world: World, owner: Entity) => Module<Entity>)[]) {
-		const code = this.canSpawnUnit(entity, rpos, Class);
+
+	public spawn(blueprint: IBlueprint | string, rpos: Vector2 = Vector2.ZERO) {
+		const bp = typeof blueprint === 'string' ? codenv.blueprints[blueprint] : blueprint;
+
+		const code = this.canSpawn(bp, rpos);
 		if(isError(code)) return code;
-		return this.$units.create<typeof Unit>(Class, entity.cell.new().add(rpos), this, Modules) as InstanceType<T>;
+
+		return world.create(this.owner.cell.new().add(rpos), bp.modules as [], bp.params);
 	}
+}
+
+
+mod_env[ID] = ENV;
+mod_zod[ID] = zod_model;
+modules[ID] = BuildModule;
+
+declare module '@/modules' {
+	namespace mod_env { let build: typeof ENV; }
+	namespace mod_zod { let build: typeof zod_model; }
+	namespace modules { let build: typeof BuildModule; }
 }

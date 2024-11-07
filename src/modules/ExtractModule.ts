@@ -1,12 +1,13 @@
+import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
-import { Module } from '@/game/Module';
+import { Module } from '@/modules/Module';
 import { APIResult } from '@/code/Executor';
-import { dirToVec2, TDiration } from '@/utils/cell';
-import { world } from '@/game/world';
-import { I } from '@/scenes/WorldMap';
+import { dirToVec2 } from '@/utils/cell';
+import { I, world } from '@/game/world';
 import { CODE } from '@/code/code';
 import { Cargo } from '@/utils/cargo';
-import { Entity } from '../Entity';
+import { Entity } from '@/game/Entity';
+import { EntityParams, mod_env, mod_zod, modules } from '@/modules';
 
 
 const ID = 'extract';
@@ -15,18 +16,21 @@ type ID = typeof ID;
 type Iter = Generator<[ID, string, ...any[]], any, any>;
 
 export declare namespace ExtractModule {
-	export interface IOwner extends Entity {
-		diration: TDiration;
-	}
+	export interface IOwner extends Entity<[ID]> {}
 }
-
 type IOwner = ExtractModule.IOwner;
+
+const zod_model = z.object({
+	[ID]: z.object({
+		force: z.number().min(1)
+	})
+});
 
 
 const TIME = 1000;
 
 const ENV = (module: ExtractModule) => ({
-	*extract(rpos: Vector2 = dirToVec2(module.owner.diration)): Iter {
+	*extract(rpos: Vector2 = dirToVec2(module.owner.direction)): Iter {
 		if(!rpos) throw new Error('"extract" invalid argumnets');
 		return yield [ID, 'extract', rpos];
 	}
@@ -37,19 +41,22 @@ const API = {
 } satisfies Record<string, (module: ExtractModule, ...args: any) => APIResult<any>>;
 
 export class ExtractModule extends Module<ID, IOwner> {
-	public force: number = 1;
+	public force: number;
 
-	constructor(owner: IOwner) {
+	constructor(owner: IOwner, { extract }: EntityParams<[ID]>) {
 		super(ID, owner, API);
-		this.ENV = ENV(this);
+
+		this.force = extract.force || 1;
 	}
 
-	public extract(pos: Vector2) {
+	public extract(rpos: Vector2 = Vector2.ZERO) {
+		const pos = this.owner.cell.new().add(rpos);
 		const i = I(pos);
 		const resource = world.resources_map[i];
 
 		if(resource <= 0) return CODE.ERR_RESOURCE_NOT_FOUND;
 
+		// HACK:
 		const items: Cargo.Item[] = [{ title: 'resource', bulk: 1, count: this.force }];
 		world.resources_map[i] -= 0.01;
 
@@ -57,4 +64,15 @@ export class ExtractModule extends Module<ID, IOwner> {
 
 		return items;
 	}
+}
+
+
+mod_env[ID] = ENV;
+mod_zod[ID] = zod_model;
+modules[ID] = ExtractModule;
+
+declare module '@/modules' {
+	namespace mod_env { let extract: typeof ENV; }
+	namespace mod_zod { let extract: typeof zod_model; }
+	namespace modules { let extract: typeof ExtractModule; }
 }

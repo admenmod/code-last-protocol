@@ -1,14 +1,22 @@
+import { FunctionIsEvent } from 'ver/events';
 import { APIResult, Executor } from '@/code/Executor';
+import { Entity } from '@/game/Entity';
 
 
 export declare namespace Module {
-	interface IOwner {
-		modules: Module<string, IOwner>[]
-	}
+	interface IOwner extends Entity {}
 }
 
 
 export abstract class Module<const ID extends string, T extends Module.IOwner, const P extends object = {}> extends Executor {
+	public isReady: boolean = false;
+	public ready = new FunctionIsEvent<Module<ID, T, P>, [], () => Promise<boolean>>(this, async () => {
+		if(this.isReady) return false;
+		this.ready.emit();
+		this.isReady = true;
+		return true;
+	});
+
 	constructor(
 		public readonly id: ID,
 		public owner: T,
