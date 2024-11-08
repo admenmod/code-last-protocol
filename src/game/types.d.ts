@@ -10,7 +10,7 @@ export type IScanData = {
 	structures: { type: string; }[];
 }[];
 
-export type IBlueprint<T extends AnyModuleId[] = AnyModuleId[]> = {
+export type IBlueprint<T extends AnyModuleId[] = []> = {
 	name?: string;
 	time: number;
 	modules: T;

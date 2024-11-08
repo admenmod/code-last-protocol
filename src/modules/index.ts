@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { object } from 'ver/helpers';
+import { z_direction, z_Vector2 } from '@/zod';
 
 export type Default<T, D> = [T] extends [never] ? D : T;
 
@@ -25,7 +26,7 @@ export type AnyModulesParams = ModulesParams<AnyModuleId[]>;
 export type AnyEntityParams = EntityParams<AnyModuleId[]>;
 
 export const entity_zod_model = z.object({
-	size: z.Vector2(),
+	size: z_Vector2(),
 	height: z.number().min(0.001, 'min height 0.001'),
-	direction: z.direction()
+	direction: z_direction()
 });

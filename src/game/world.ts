@@ -124,14 +124,20 @@ export const world = new class World extends EventDispatcher {
 		this.canvas_map.canvas.height = H;
 
 		this.mapRender();
+
+		this.on('create', entity => {
+			const scan = entity.get('scan');
+
+			if(scan) scan.on('scan', data => this.scanedRender(data));
+		});
 	}
 
 	constructor() { super(); this.#init(); }
 
 
-	public scaned_canvas = new OffscreenCanvas(W, H).getContext('2d')!;
+	public scaned_map = new OffscreenCanvas(W, H).getContext('2d')!;
 
-	public scanedRender(data: IScanData, ctx = this.scaned_canvas) {
+	public scanedRender(data: IScanData, ctx = this.scaned_map) {
 		ctx.save();
 		// ctx.clearRect(0, 0, W, H);
 

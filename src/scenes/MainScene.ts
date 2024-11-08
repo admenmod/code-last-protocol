@@ -119,7 +119,7 @@ export class MainScene extends Control {
 
 		const unit = world.create(new Vector2(0, 0), ['script', 'move', 'scan', 'cargo', 'extract'], {
 			height: 1,
-			size: new Vector2(4, 4),
+			size: new Vector2(1, 1),
 			direction: 0,
 
 			move: { force: 1 },
@@ -176,6 +176,7 @@ export class MainScene extends Control {
 		ctx.globalAlpha = 0.5;
 		ctx.drawImage(world.canvas_map.canvas, -SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
 		ctx.globalAlpha = 1;
+		ctx.drawImage(world.scaned_map.canvas, -SIZE_X/2, -SIZE_Y/2, SIZE_X, SIZE_Y);
 		ctx.restore();
 
 		for(let i = 0; i < world.entitys.length; i++) {

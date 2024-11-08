@@ -7,7 +7,7 @@ import { createStateManager } from '@/utils/state-manager';
 import { AnyModule, AnyModuleConstructor, AnyModuleId, EntityParams, modules } from '@/modules';
 
 
-export class Entity<const M extends AnyModuleId[] = AnyModuleId[]> extends EventDispatcher {
+export class Entity<const M extends AnyModuleId[] = []> extends EventDispatcher {
 	public isReady: boolean = false;
 	public ready = new FunctionIsEvent<Entity<M>, [], () => Promise<boolean>>(this, async () => {
 		if(this.isReady) return false;
