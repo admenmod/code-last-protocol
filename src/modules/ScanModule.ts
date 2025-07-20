@@ -1,12 +1,12 @@
-import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
-import { modules, mod_env, IEntityParams, EntityParams, mod_zod } from '@/modules';
+import { modules, mod_env, IEntityParams, EntityParams, mod_st } from '@/modules';
 import { I, world } from '@/game/world';
 import { Module } from '@/modules/Module';
 import { APIResult } from '@/code/Executor';
 import { IScanData } from '@/game/types';
 import { Entity } from '@/game/Entity';
+import { number, object } from '@/utils/strc-types';
 
 
 const ID = 'scan';
@@ -20,10 +20,10 @@ export declare namespace ScanModule {
 
 type IOwner = ScanModule.IOwner;
 
-const zod_model = z.object({
-	[ID]: z.object({
-		force: z.number().min(1)
-	})
+const st_model = object({
+	[ID]: {
+		force: number.range({ min: 1 })
+	}
 });
 
 
@@ -76,11 +76,11 @@ class ScanModule extends Module<ID, IOwner, IEntityParams> {
 
 
 mod_env[ID] = ENV;
-mod_zod[ID] = zod_model;
+mod_st[ID] = st_model;
 modules[ID] = ScanModule;
 
 declare module '@/modules' {
 	namespace mod_env { let scan: typeof ENV; }
-	namespace mod_zod { let scan: typeof zod_model; }
+	namespace mod_st { let scan: typeof st_model; }
 	namespace modules { let scan: typeof ScanModule; }
 }

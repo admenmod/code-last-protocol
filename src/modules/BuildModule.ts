@@ -1,13 +1,13 @@
-import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import { Module } from '@/modules/Module';
 import { APIResult } from '@/code/Executor';
 import { I, world } from '@/game/world';
 import { CODE, isError } from '@/code/code';
 import { Entity } from '@/game/Entity';
-import { mod_env, mod_zod, modules } from '@/modules';
+import { mod_env, mod_st, modules } from '@/modules';
 import { IBlueprint } from '@/game/types';
 import { codenv } from '@/codenv';
+import { object } from '@/utils/strc-types';
 
 
 const ID = 'build';
@@ -20,7 +20,7 @@ export declare namespace BuildModule {
 }
 type IOwner = BuildModule.IOwner;
 
-const zod_model = z.object({});
+const st_model = object({});
 
 
 const TIME = 1000;
@@ -72,11 +72,11 @@ export class BuildModule extends Module<ID, IOwner> {
 
 
 mod_env[ID] = ENV;
-mod_zod[ID] = zod_model;
+mod_st[ID] = st_model;
 modules[ID] = BuildModule;
 
 declare module '@/modules' {
 	namespace mod_env { let build: typeof ENV; }
-	namespace mod_zod { let build: typeof zod_model; }
+	namespace mod_st { let build: typeof st_model; }
 	namespace modules { let build: typeof BuildModule; }
 }

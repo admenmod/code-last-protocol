@@ -1,70 +1,119 @@
 import { Vector2 } from 'ver/Vector2';
+import { math as Math } from 'ver/helpers';
 import { Err, type object as _object, type list } from 'ver/helpers';
-import { ID, sm } from './strc';
+import { ID, st } from 'ver/super-type';
 
 
-export type NumberArrayToUnionString<T extends number[]> = _NumberArrayToUnionString<list.tail<T>, `${list.head<T>}`>;
-export type _NumberArrayToUnionString<T extends number[], Acc extends string> =
-	T extends [infer R extends string] ? `${Acc} | ${R}` : _NumberArrayToUnionString<list.tail<T>, `${Acc} | ${list.head<T>}`>;
+export type Include<T> = { [ID]: 'Include', T: T };
+export type Cont<T> = { [ID]: 'Cont', T: T };
 
-export const number = Object.assign(sm.type('number', ['is number', v => typeof v === 'number']), {
-	as: <const T extends number[]>(...T: T) => {
-		const t = T.join(' | ') as NumberArrayToUnionString<T>;
-		return sm.type(`number::is<${t}>`, number, [`is ${T}`, (v): v is T[number] => T.includes(v)]);
-	}
-});
+type _toArray<T extends Include<any>> = T extends Include<infer _> ? _[] : never;
+type _toCont<T extends Cont<any>> = T extends Cont<infer _> ? { Cont: _ } : never;
 
-export type StringArrayToUnionString<T extends string[]> = _StringToUnionString<list.tail<T>, `'${list.head<T>}'`>;
-export type _StringToUnionString<T extends string[], Acc extends string> =
-	T extends [infer R extends string] ? `${Acc} | '${R}'` : _StringToUnionString<list.tail<T>, `${Acc} | '${list.head<T>}'`>;
+declare global {
+	interface SuperTypesRegister<T extends any[] = any> {
+		and: {
+			Include(): Include<list.OR<{ [K in keyof T]:
+				T[K] extends { [ID]: 'Include' } ? T[K]['T'] :
+				Err<['and::Include error type', T[K]]>; }>>;
 
-export const string = Object.assign(sm.type('string', ['is string', v => typeof v === 'string']), {
-	as: <const T extends string[]>(...T: T) => {
-		const t = T.map(it => `'${it.replace("'", "\\'")}'`).join(' | ') as StringArrayToUnionString<T>;
-		return sm.type(`string::is<${t}>`, string, [`is ${t}`, (v): v is T[number] => T.includes(v)]);
-	}
-});
+			Cont(): Cont<list.AND<{ [K in keyof T]:
+				T[K] extends { [ID]: 'Cont' } ? T[K]['T'] :
+				Err<['and::Cont error type', T[K]]>; }>>;
+		},
+		or: {
+			Include(): list.OR<{ [K in keyof T]:
+				T[K] extends { [ID]: 'Include' } ? Include<T[K]['T']> :
+				Err<['or::Include error type', T[K]]>; }>;
 
+			Cont(): list.OR<{ [K in keyof T]:
+				T[K] extends { [ID]: 'Cont' } ? Cont<T[K]['T']> :
+				Err<['or::Cont error type', T[K]]>; }>;
+		},
+		resolve: {
+			Include(): { [K in keyof T]: T[K] extends { [ID]: 'Include' } ?
+				_toArray<T[K]> :
+				Err<['resolve::Include error type', T[K]]>; };
 
-export type RecordModel = { [K: PropertyKey]: RecordModel | sm.Type | sm.Model | sm.Ref; };
-
-export const object = <const Name, T extends RecordModel, Tgs extends sm.ITypeArg[]>(name: Name, o: T, ...tgs: Tgs) => {
-	const points: sm.Point[] = [];
-
-	for(const k in o) {
-		const v = o[k];
-
-		points.push([[k], sm.type(`[${k}] in object`, [
-			`[${k}] in object`, <const k extends PropertyKey>(v: any): v is { [K in k]: unknown } => v[k]])
-		]);
-
-		if(v instanceof sm.Type) points.push([[k], v]);
-		else if(v instanceof sm.Model) {
-			for(const [p, t] of v.points) points.push([[k, ...p], t]);
-		// } else if(v === SELF) {
-		// 	// BUG: throw new Error('not implemented');
-		} else {
-			// HACK:
-			if(sm.isRegisteredType(v)) throw new Error('not implemented');
+			Cont(): { [K in keyof T]: T[K] extends { [ID]: 'Cont' } ?
+				_toCont<T[K]> :
+				Err<['resolve::Cont error type', T[K]]>; };
 		}
 	}
+}
 
-	const parse = (data: any): data is sm.infer<T> => {
-		for(const [path, type] of points) {
-			// HACK:
-			if(!type.parse(eval(`data.${path.join('.')}`))) return false;
-		}
+export const meta = st.meta;
+
+export const or = <const T extends any[]>(...args: T) => (data: any): data is st.OpSTArgs<'or', {
+	[K in keyof T]: T[K] extends st.TypeGuard ? st.TypeGuard.T<T[K]> : T[K];
+}> => st.or(...[new Set(args)].map(it => lit(it))) as any;
+
+export const and = <const T extends any[]>(...args: T) => (data: any): data is st.OpSTArgs<'and', {
+	[K in keyof T]: T[K] extends st.TypeGuard ? st.TypeGuard.T<T[K]> : T[K];
+}> => st.and(...[new Set(args)].map(it => lit(it))) as any;
+
+
+export const number = Object.assign(st.meta(v => typeof v === 'number', {
+	type: 'number', description: 'is number'
+}), {
+	range: ({ min, max }: {
+		min?: number, max?: number
+	}) => st.meta(st.and(number, (v): v is number => v >= (min || -Math.INF) && v <= (max || Math.INF)), {
+		type: 'number::range', description: 'is range'
+	})
+});
+export const string = st.meta(v => typeof v === 'string', { type: 'string', description: 'is string' });
+
+export const vector2 = st.meta((v): v is Vector2 => v instanceof Vector2, {
+	type: Vector2,
+	description: 'is Vector2'
+});
+
+
+export type RecordModel = { [K: PropertyKey]: RecordModel | /* ArrayModel |*/ st.TypeGuard | st.Ref; };
+
+export const object = <T extends RecordModel>(o: T) => {
+	// const res = (o: RecordModel | _object.values<RecordModel>, key?: sm.path[number]) => {
+	// 	const path: sm.path = [];
+	//
+	// 	if(o instanceof sm.Type) points.push([path, o]);
+	// 	else if(REF in o) {
+	// 		o.scope[o.id];
+	// 		throw new Error('not implemented');
+	// 	} else if(o instanceof sm.Model) {
+	// 		// WARN: не учитываются tgs модели
+	// 		for(const [p, t] of o.points) points.push([[...path, ...p], t]);
+	// 	} else if(typeof o === 'object') {
+	// 		if(typeof key !== 'undefined') path.push(key);
+	//
+	// 		for(const key in o) res(o[key], key);
+	//
+	// 		if(typeof key !== 'undefined') path.pop();
+	// 	} else {
+	// 		if(sm.isRegisteredType(o)) throw new Error('not implemented');
+	// 		throw new Error('unknown type');
+	// 	}
+	// };
+
+	// res(o);
+
+	const parse = (data: any): data is st.infer<T> => {
+		if(data !== null && typeof data === 'object') throw new Error('is object');
+
+		// for(const [path, type] of points) {
+		// 	// HACK:
+		// 	if(!type.parse(eval(`data.${path.join('.')}`))) return false;
+		// }
 
 		return true;
 	};
 
-	const is_object = ['is object', (v: any): v is object => v !== null && typeof v === 'object'] satisfies sm.IType;
-
-	return new sm.Model(`object::<${name}>`, o, points, parse, is_object, ...sm.toITypes(tgs));
+	return st.meta(parse, {});
 };
 
 
-export type ArrayModel = (RecordModel | sm.Type | sm.Model | sm.Ref)[];
+/*
+export type ArrayModel = (RecordModel | ArrayModel | sm.Type | sm.Model | sm.Ref)[];
 
 export const array = <const Name, const T extends (RecordModel | sm.Type | sm.Model | sm.Ref) | ArrayModel, const Tgs extends sm.ITypeArg[]>(name: Name, o: T, ...tgs: Tgs) => {
 	// const _tgs = tgs.map(it => it instanceof Type ? it.tgs : it) as Default<ITypeArgsToTGS<Tgs>, []>;
@@ -111,42 +160,23 @@ export const array = <const Name, const T extends (RecordModel | sm.Type | sm.Mo
 		return true;
 	}, ['is array', (v: any): v is unknown[] => Array.isArray(v)], ...sm.toITypes(tgs));
 };
+*/
 
+const lit = <T>(v: T) => (data: any): data is T => data === v;
 
-export const vector2 = sm.type(Vector2, ['is Vector2', (v): v is Vector2 => v instanceof Vector2]);
+let t1 = st.or(lit({ a: 1 }), lit({ b: 2 }));
+let t2 = st.or(lit({ c: 3 }), lit({ f: 4 }));
+let test_type = st.and(t1, t2);
 
+// let test_type = sm.or(string, number);
 
-export type Include<T> = { [ID]: 'Include', T: T };
-export type Cont<T> = { [ID]: 'Cont', T: T };
+// let a: sm.TypeGuard.resolve<typeof test_type> = {};
 
-declare global {
-	interface SuperTypesRegister<T extends any[] = any> {
-		and: {
-			Include(): Include<list.OR<{ [K in keyof T]:
-				T[K] extends { [ID]: 'Include' } ? T[K]['T'] :
-				Err<['and::Include error type', T[K]]>; }>>;
+{
+	let d: any = 0 as any;
 
-			Cont(): Cont<list.AND<{ [K in keyof T]:
-				T[K] extends { [ID]: 'Cont' } ? T[K]['T'] :
-				Err<['and::Cont error type', T[K]]>; }>>;
-		},
-		or: {
-			Include(): list.OR<{ [K in keyof T]:
-				T[K] extends { [ID]: 'Include' } ? Include<T[K]['T']> :
-				Err<['or::Include error type', T[K]]>; }>;
-
-			Cont(): list.OR<{ [K in keyof T]:
-				T[K] extends { [ID]: 'Cont' } ? Cont<T[K]['T']> :
-				Err<['or::Cont error type', T[K]]>; }>;
-		},
-		resolve: {
-			Include(): { [K in keyof T]: T[K] extends { [ID]: 'Include' } ?
-				Array<T[K]['T']> :
-				Err<['resolve::Include error type', T[K]]>; };
-
-			Cont(): { [K in keyof T]: T[K] extends { [ID]: 'Cont' } ?
-				{ Cont: T[K]['T'] } :
-				Err<['resolve::Cont error type', T[K]]>; };
-		}
+	if(st.parse(test_type, d)) {
+		let a = d;
+		// a = 'ksd';
 	}
 }

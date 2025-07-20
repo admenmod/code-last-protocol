@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import { Module } from '@/modules/Module';
 import { APIResult } from '@/code/Executor';
@@ -7,7 +6,8 @@ import { I, world } from '@/game/world';
 import { CODE } from '@/code/code';
 import { Cargo } from '@/utils/cargo';
 import { Entity } from '@/game/Entity';
-import { EntityParams, mod_env, mod_zod, modules } from '@/modules';
+import { EntityParams, mod_env, mod_st, modules } from '@/modules';
+import { number, object } from '@/utils/strc-types';
 
 
 const ID = 'extract';
@@ -20,10 +20,10 @@ export declare namespace ExtractModule {
 }
 type IOwner = ExtractModule.IOwner;
 
-const zod_model = z.object({
-	[ID]: z.object({
-		force: z.number().min(1)
-	})
+const st_model = object({
+	[ID]: {
+		force: number.range({ min: 1 })
+	}
 });
 
 
@@ -68,11 +68,11 @@ export class ExtractModule extends Module<ID, IOwner> {
 
 
 mod_env[ID] = ENV;
-mod_zod[ID] = zod_model;
+mod_st[ID] = st_model;
 modules[ID] = ExtractModule;
 
 declare module '@/modules' {
 	namespace mod_env { let extract: typeof ENV; }
-	namespace mod_zod { let extract: typeof zod_model; }
+	namespace mod_st { let extract: typeof st_model; }
 	namespace modules { let extract: typeof ExtractModule; }
 }

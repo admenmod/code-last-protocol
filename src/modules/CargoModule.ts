@@ -1,12 +1,13 @@
-import { z } from 'zod';
 import { Vector2 } from 'ver/Vector2';
 import type { APIResult } from '@/code/Executor';
 import { Module } from './Module';
-import { EntityParams, mod_env, mod_zod, modules } from '@/modules';
+import { EntityParams, mod_env, mod_st, modules } from '@/modules';
 import { CODE, isError } from '@/code/code';
 import { Cargo } from '@/utils/cargo';
 import { world } from '@/game/world';
 import { Entity } from '@/game/Entity';
+import { number, object } from '@/utils/strc-types';
+import { st } from 'ver/super-type';
 
 
 const ID = 'cargo';
@@ -21,10 +22,10 @@ export declare namespace CargoModule {
 type IOwner = CargoModule.IOwner;
 
 
-const zod_model = z.object({
-	[ID]: z.object({
-		size: z.number()
-	})
+const st_model = object({
+	[ID]: {
+		size: number
+	}
 });
 
 const TIME = 1000;
@@ -101,13 +102,13 @@ export class CargoModule extends Module<ID, IOwner> {
 
 
 mod_env[ID] = ENV;
-mod_zod[ID] = zod_model;
+mod_st[ID] = st_model;
 modules[ID] = CargoModule;
 
 declare module '@/modules' {
 	namespace mod_env { let cargo: typeof ENV; }
-	namespace mod_zod { let cargo: typeof zod_model; }
+	namespace mod_st { let cargo: typeof st_model; }
 	namespace modules { let cargo: typeof CargoModule; }
 
-	interface IEntityParams extends z.infer<typeof zod_model> {}
+	interface IEntityParams extends st.infer<typeof st_model> {}
 }

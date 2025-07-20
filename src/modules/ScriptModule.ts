@@ -1,8 +1,7 @@
-import { z } from 'zod';
 import { Event, EventDispatcher } from 'ver/events';
 import { Fn, object as Object } from 'ver/helpers';
 
-import { modules, mod_env, mod_zod } from '@/modules';
+import { modules, mod_env, mod_st } from '@/modules';
 import { Module } from '@/modules/Module';
 import type { APIResult } from '@/code/Executor';
 import { CODE } from '@/code/code';
@@ -12,6 +11,7 @@ import { Generator, delay } from 'ver/helpers';
 
 import { Task } from '@/code/Executor';
 import { CodeSpace } from '@/code/CodeSpace';
+import { object } from '@/utils/strc-types';
 
 
 export interface IScript {
@@ -191,7 +191,7 @@ export declare namespace ScriptModule {
 
 type IOwner = ScriptModule.IOwner;
 
-const zod_model = z.object({});
+const st_model = object({});
 
 // const TIME = 1000;
 
@@ -345,11 +345,11 @@ class ScriptModule extends Module<ID, IOwner> {
 
 
 mod_env[ID] = ENV;
-mod_zod[ID] = zod_model;
+mod_st[ID] = st_model;
 modules[ID] = ScriptModule;
 
 declare module '@/modules' {
 	namespace mod_env { let script: typeof ENV; }
-	namespace mod_zod { let script: typeof zod_model; }
+	namespace mod_st { let script: typeof st_model; }
 	namespace modules { let script: typeof ScriptModule; }
 }

@@ -1,15 +1,17 @@
 import { Vector2 } from 'ver/Vector2';
 import { EventDispatcher, FunctionIsEvent } from 'ver/events';
-import { math as Math } from 'ver/helpers';
+import { math as Math, type object } from 'ver/helpers';
 
 import { direction } from '@/utils/cell';
 import { createStateManager } from '@/utils/state-manager';
-import { AnyModule, AnyModuleConstructor, AnyModuleId, EntityParams, modules } from '@/modules';
+import { AnyModuleConstructor, AnyModuleId, EntityParams, modules } from '@/modules';
+import { GST } from '@/st-types';
 
+// NOTE: сделать схемы для модулей более качественными
 
-export class Entity<const M extends AnyModuleId[] = []> extends EventDispatcher {
+export class Entity<const T extends AnyModuleId[] = []> extends EventDispatcher {
 	public isReady: boolean = false;
-	public ready = new FunctionIsEvent<Entity<M>, [], () => Promise<boolean>>(this, async () => {
+	public ready = new FunctionIsEvent<Entity<T>, [], () => Promise<boolean>>(this, async () => {
 		if(this.isReady) return false;
 		this.ready.emit();
 		this.isReady = true;
@@ -19,28 +21,28 @@ export class Entity<const M extends AnyModuleId[] = []> extends EventDispatcher 
 	public height: number;
 	public size = new Vector2();
 
-	public _direction: direction = 0;
+	public _direction: GST.direction = 0;
 	public get direction() { return this._direction; }
-	public set direction(v) { this._direction = Math.mod(v, 0, 8) as direction; }
+	public set direction(v) { this._direction = Math.mod(v, 0, 8) as GST.direction; }
 
-	public modules: AnyModule[] = [];
+	public modules: object.values<{ [K in keyof T]: T[K] extends keyof typeof modules ? InstanceType<typeof modules[T[K]]> : never }>[] = [];
 
-	constructor(public cell: Vector2, Modules: M, p: EntityParams<M>) {
+	constructor(public cell: Vector2, Modules: T, p: EntityParams<T>) {
 		super();
 
 		this.size.set(p.size);
 		this.height = p.height;
 		this.direction = direction(p.direction);
 
-		for(const id of Modules) this.modules.push(new modules[id](this, p as any));
+		for(const id of Modules) this.modules.push(new (modules[id] as any)(this, p));
 		for(const module of this.modules) module.ready();
 
 		this.ready();
 	}
 
-	public get<T extends M[number]>(module_id: T): InstanceType<typeof modules[T]>;
-	public get<T extends keyof typeof modules>(module_id: T): InstanceType<typeof modules[T]> | void;
-	public get<T extends AnyModuleConstructor>(Module: T): InstanceType<T> | void;
+	public get<I extends T[number]>(module_id: I): InstanceType<typeof modules[I]>;
+	public get<I extends keyof typeof modules>(module_id: I): InstanceType<typeof modules[I]> | void;
+	public get<I extends AnyModuleConstructor>(Module: I): InstanceType<I> | void;
 	public get(a: any): any {
 		if(typeof a === 'string') return this.modules.find(it => it.id === a);
 		else return this.modules.find(it => it instanceof a);
@@ -62,3 +64,16 @@ export class Entity<const M extends AnyModuleId[] = []> extends EventDispatcher 
 		}
 	}
 }
+
+
+export const e = new Entity(new Vector2(), ['extract', 'move', 'cargo', 'scan', 'script'], {
+	height: 100,
+	direction: 3,
+	size: new Vector2(2, 2),
+	move: { force: 1 },
+	cargo: { size: 10 },
+	scan: { force: 2 },
+	extract: { force: 1 }
+});
+
+e.get('extract').API;
