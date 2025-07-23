@@ -1,10 +1,10 @@
 import { Vector2 } from 'ver/Vector2';
-import { GST } from '@/st-types';
+import { types } from '@/st-types';
 
 
-export const direction = (value?: any): GST.direction => (Number(value ?? 0) % 7) as GST.direction;
+export const direction = (value?: any): types.direction => (Number(value ?? 0) % 7) as types.direction;
 
-export const dirToVec2 = (dir: GST.direction) => {
+export const dirToVec2 = (dir: types.direction) => {
 	if(dir === 0) return new Vector2(-1,  0);
 	if(dir === 1) return new Vector2(-1, -1);
 	if(dir === 2) return new Vector2( 0, -1);

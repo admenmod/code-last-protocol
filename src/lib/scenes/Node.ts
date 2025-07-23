@@ -3,7 +3,7 @@ import { Scene } from 'ver/Scene';
 import { System } from 'ver/System';
 
 
-export class ProcessSystem extends System<typeof Node> {
+export class ProcessSystem extends System<Node> {
 	constructor() {
 		super(Node);
 

@@ -11,8 +11,8 @@ type _toArray<T extends Include<any>> = T extends Include<infer _> ? _[] : never
 type _toCont<T extends Cont<any>> = T extends Cont<infer _> ? { Cont: _ } : never;
 
 declare global {
-	interface SuperTypesRegister<T extends any[] = any> {
-		and: {
+	namespace GlobalSuperTypesRegister {
+		interface and<T extends any[] = any> {
 			Include(): Include<list.OR<{ [K in keyof T]:
 				T[K] extends { [ID]: 'Include' } ? T[K]['T'] :
 				Err<['and::Include error type', T[K]]>; }>>;
@@ -20,8 +20,9 @@ declare global {
 			Cont(): Cont<list.AND<{ [K in keyof T]:
 				T[K] extends { [ID]: 'Cont' } ? T[K]['T'] :
 				Err<['and::Cont error type', T[K]]>; }>>;
-		},
-		or: {
+		}
+
+		interface or<T extends any[] = any> {
 			Include(): list.OR<{ [K in keyof T]:
 				T[K] extends { [ID]: 'Include' } ? Include<T[K]['T']> :
 				Err<['or::Include error type', T[K]]>; }>;
@@ -29,8 +30,9 @@ declare global {
 			Cont(): list.OR<{ [K in keyof T]:
 				T[K] extends { [ID]: 'Cont' } ? Cont<T[K]['T']> :
 				Err<['or::Cont error type', T[K]]>; }>;
-		},
-		resolve: {
+		}
+
+		interface resolve<T extends any[] = any> {
 			Include(): { [K in keyof T]: T[K] extends { [ID]: 'Include' } ?
 				_toArray<T[K]> :
 				Err<['resolve::Include error type', T[K]]>; };
@@ -53,7 +55,7 @@ export const and = <const T extends any[]>(...args: T) => (data: any): data is s
 }> => st.and(...[new Set(args)].map(it => lit(it))) as any;
 
 
-export const number = Object.assign(st.meta(v => typeof v === 'number', {
+export const number = Object.assign(st.meta((v): v is number => typeof v === 'number', {
 	type: 'number', description: 'is number'
 }), {
 	range: ({ min, max }: {
@@ -62,12 +64,32 @@ export const number = Object.assign(st.meta(v => typeof v === 'number', {
 		type: 'number::range', description: 'is range'
 	})
 });
-export const string = st.meta(v => typeof v === 'string', { type: 'string', description: 'is string' });
+export const string = st.meta((v): v is string => typeof v === 'string', { type: 'string', description: 'is string' });
 
 export const vector2 = st.meta((v): v is Vector2 => v instanceof Vector2, {
-	type: Vector2,
+	type: 'Vector2',
 	description: 'is Vector2'
 });
+
+
+// function flattenSchema(schema: Schema, basePath: string[] = []): TypePoint<any>[] {
+// 	const points: TypePoint<any>[] = [];
+//
+// 	for(const key in schema) {
+// 		const value = schema[key];
+// 		const currentPath = [...basePath, key];
+//
+// 		if('guard' in value) {
+// 			// value — TypePoint
+// 			points.push({ ...value, path: currentPath });
+// 		} else {
+// 			// value — вложенная схема
+// 			points.push(...flattenSchema(value as Schema, currentPath));
+// 		}
+// 	}
+//
+// 	return points;
+// }
 
 
 export type RecordModel = { [K: PropertyKey]: RecordModel | /* ArrayModel |*/ st.TypeGuard | st.Ref; };

@@ -11,7 +11,7 @@ import { Camera2D } from 'lib/scenes/Camera2D';
 import { GridMap } from 'lib/scenes/gui/GridMap';
 import { SystemInfo } from 'lib/scenes/gui/SystemInfo';
 
-import { touches, viewport } from '@/canvas';
+import { touches, viewport } from '@/init';
 
 import { AudioContorller } from 'lib/AudioController';
 export const audioContorller = new AudioContorller();
@@ -26,7 +26,6 @@ import '@/modules/ExtractModule';
 
 import { SIZE_X, SIZE_Y, world } from '@/game/world';
 import { CELL_SIZE } from '@/config';
-import { god_global_event } from '@/app/game';
 
 
 class Info extends Node2D {
@@ -137,9 +136,9 @@ export class MainScene extends Control {
 			const unit_code = await fetch(`${location.origin}/user/unit.js`).then(data => data.text());
 			unit.get('script')!.run(unit_code);
 
-			god_global_event.on(code => {
-				unit.get('script')!.run(code);
-			});
+			// god_global_event.on(code => {
+			// 	unit.get('script')!.run(code);
+			// });
 		})();
 
 		const onmove: KeymapperOfActions.Action = ({ mapping: [dir] }) => {

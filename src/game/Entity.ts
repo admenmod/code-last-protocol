@@ -5,11 +5,11 @@ import { math as Math, type object } from 'ver/helpers';
 import { direction } from '@/utils/cell';
 import { createStateManager } from '@/utils/state-manager';
 import { AnyModuleConstructor, AnyModuleId, EntityParams, modules } from '@/modules';
-import { GST } from '@/st-types';
+import { types } from '@/st-types';
 
 // NOTE: сделать схемы для модулей более качественными
 
-export class Entity<const T extends AnyModuleId[] = []> extends EventDispatcher {
+export class Entity<const T extends AnyModuleId[] = any> extends EventDispatcher {
 	public isReady: boolean = false;
 	public ready = new FunctionIsEvent<Entity<T>, [], () => Promise<boolean>>(this, async () => {
 		if(this.isReady) return false;
@@ -21,9 +21,9 @@ export class Entity<const T extends AnyModuleId[] = []> extends EventDispatcher 
 	public height: number;
 	public size = new Vector2();
 
-	public _direction: GST.direction = 0;
+	public _direction: types.direction = 0;
 	public get direction() { return this._direction; }
-	public set direction(v) { this._direction = Math.mod(v, 0, 8) as GST.direction; }
+	public set direction(v) { this._direction = Math.mod(v, 0, 8) as types.direction; }
 
 	public modules: object.values<{ [K in keyof T]: T[K] extends keyof typeof modules ? InstanceType<typeof modules[T[K]]> : never }>[] = [];
 
@@ -40,7 +40,6 @@ export class Entity<const T extends AnyModuleId[] = []> extends EventDispatcher 
 		this.ready();
 	}
 
-	public get<I extends T[number]>(module_id: I): InstanceType<typeof modules[I]>;
 	public get<I extends keyof typeof modules>(module_id: I): InstanceType<typeof modules[I]> | void;
 	public get<I extends AnyModuleConstructor>(Module: I): InstanceType<I> | void;
 	public get(a: any): any {
@@ -64,16 +63,3 @@ export class Entity<const T extends AnyModuleId[] = []> extends EventDispatcher 
 		}
 	}
 }
-
-
-export const e = new Entity(new Vector2(), ['extract', 'move', 'cargo', 'scan', 'script'], {
-	height: 100,
-	direction: 3,
-	size: new Vector2(2, 2),
-	move: { force: 1 },
-	cargo: { size: 10 },
-	scan: { force: 2 },
-	extract: { force: 1 }
-});
-
-e.get('extract').API;

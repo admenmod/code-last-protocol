@@ -313,13 +313,13 @@ class ScriptModule extends Module<ID, IOwner> {
 	}
 
 	public async script_next(script: Script) {
-		console.groupEnd();
+		// console.groupEnd();
 		// if(!owner.isActive || !script.iterator || script.isStop()) return;
 
 		const { done, value } = script.next(script.out_data);
 		if(done) return void script.reset(value);
 
-		console.group(script.generator.name, value);
+		// console.group(script.generator.name, value);
 
 		let promise: Task<any> | Promise<any>;
 

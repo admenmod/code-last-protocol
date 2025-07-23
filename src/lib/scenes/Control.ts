@@ -15,7 +15,7 @@ export interface IInputEvent {
 }
 
 
-export class ControllersSystem extends System<typeof Control> {
+export class ControllersSystem extends System<Control> {
 	public '@input:press' = new Event<ControllersSystem, [e: IInputEvent]>(this);
 	public '@input:up'    = new Event<ControllersSystem, [e: IInputEvent]>(this);
 	public '@input:move'  = new Event<ControllersSystem, [e: IInputEvent]>(this);

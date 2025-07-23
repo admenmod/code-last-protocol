@@ -5,7 +5,7 @@ import type { Viewport } from 'ver/Viewport';
 import { Node } from './Node.js';
 
 
-export class RenderSystem extends System<typeof CanvasItem> {
+export class RenderSystem extends System<CanvasItem> {
 	constructor() {
 		super(CanvasItem);
 

@@ -1,34 +1,40 @@
 import { st } from 'ver/super-type';
 import { meta, number, object, or, vector2 } from './utils/strc-types';
 
-
-export namespace GST {
-	export interface META {
-		type: any;
-		description: string;
+declare global {
+	namespace GlobalSuperTypesRegister {
+		interface META {
+			type?: string;
+			description?: string;
+		}
 	}
+}
 
+export namespace types {
+	export type size = st.infer<typeof size>;
 	export const size = meta(or(vector2), {
 		type: 'size',
 		description: 'Size'
-	} satisfies META);
+	});
 
-	export type direction = st.infer<typeof GST.direction>;
+	export type direction = st.infer<typeof direction>;
 	export const direction = meta((value: any): value is
 	|3|2|1
 	|4 | 0
 	|5|6|7 => typeof value === 'number' && Number.isInteger(value) && !(value < 0 || value > 7), {
 		type: 'direction',
 		description: 'Direction'
-	} satisfies META);
+	});
 
+	export type height = st.infer<typeof height>;
 	export const height = meta(number.range({ min: 0.001 }), {
 		type: 'height',
 		description: 'Height'
-	} satisfies META);
+	});
 
+	export type entity = st.infer<typeof entity>;
 	export const entity = meta(object({ size, direction, height }), {
 		type: 'entity',
 		description: 'Base entity'
-	} satisfies META);
+	});
 }

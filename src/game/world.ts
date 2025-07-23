@@ -2,17 +2,82 @@ import { Vector2 } from 'ver/Vector2';
 import { Event, EventDispatcher } from 'ver/events';
 import { math as Math } from 'ver/helpers';
 
+import '@/modules/BuildModule';
+import '@/modules/CargoModule';
+import '@/modules/ExtractModule';
+import '@/modules/MoveModule';
+import '@/modules/ScanModule';
+import '@/modules/ScriptModule';
+
 import { Env } from '@/game/Env';
 import { Entity } from './Entity';
 import type { IScanData } from '@/game/types';
 
 
 import { CELL_SIZE } from '@/config';
-import { generatePerlinNoise } from '@vicimpa/perlin-noise';
-import { AnyModuleId, EntityParams } from '@/modules';
+import { type AnyModuleId, type EntityParams } from '@/modules';
+import { createNoise2D } from 'simplex-noise';
+import alea from 'alea';
+
 
 type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
+
+interface TerrainParams {
+	octaves: number;    // Количество октав
+	scale: number;      // Масштаб (чем больше, тем крупнее объекты)
+	lacunarity: number; // Увеличение частоты после каждой октавы (обычно 2.0)
+	gain: number;       // Снижение амплитуды после каждой октавы (обычно 0.4–0.6)
+	amplitude: number;  // умножение выходных значений
+	frequency: number;  // умнодение входных значений
+}
+
+// Функция возвращает высоту в диапазоне [0, 1] для координат (x, y)
+export function getHeightAt(x: number, y: number, noise2D: (x: number, y: number) => number, {
+	octaves = 5,
+	scale = 40,
+	lacunarity = 2.0,
+	gain = 0.5,
+	amplitude = 1,
+	frequency = 1
+}: Partial<TerrainParams> = {}): number {
+	let elevation = 0;
+	let maxValue = 0;
+
+	for(let o = 0; o < octaves; o++) {
+		const nx = x * frequency / scale;
+		const ny = y * frequency / scale;
+		elevation += noise2D(nx, ny) * amplitude;
+		maxValue += amplitude;
+
+		amplitude *= gain;
+		frequency *= lacunarity;
+	}
+
+	// Приводим результат к диапазону [0, 1]
+	return (elevation / maxValue + 1) / 2;
+}
+
+
+function generatePerlinNoise(seed: number, w: number, h: number, {
+	octaves = 5,
+	scale = 40,
+	lacunarity = 2.0,
+	gain = 0.5,
+	amplitude = 1,
+	frequency = 1
+}: Partial<TerrainParams> = {}, c: (it: number) => number = it => it) {
+	const arr = new Array(w * h);
+	const noise2D = createNoise2D(alea(seed));
+
+	for(let i = 0; i < arr.length; i++) {
+		const value = getHeightAt(XY(i).x, XY(i).y, noise2D, { octaves, scale, lacunarity, gain, amplitude, frequency });
+
+		arr[i] = c(value);
+	}
+
+	return arr;
+}
 
 export const W = 128, H = 128;
 export const MAP_SIZE = W * H;
@@ -42,17 +107,14 @@ export const world = new class World extends EventDispatcher {
 
 	public draw_mode: 'height' | 'height+demp' = 'height';
 
-	public height_map = generatePerlinNoise(W, H, {
-		seed: SEED_HEIGHT_MAP, amplitude: 0.1, octaveCount: 6, persistence: 0.5
-		// seed: 0x6147db, amplitude: 0.1, octaveCount: 7, persistence: 0.3
-		// seed: 0x6147db, amplitude: 0.1, octaveCount: 5, persistence: 0.3
-	}).map(it => 0.4 < it && it < 0.6 ? it :
-		Math.clamp(0, it < 0.5 ? (1/2**1.5) * (2*it)**1 : (1/2**0.7) * (2*it)**1, 1));
+	public height_map = generatePerlinNoise(SEED_HEIGHT_MAP, W, H, {
+		amplitude: 1, lacunarity: 1.7, octaves: 6, gain: 0.4, scale: 80
+	}, it => 0.4 < it && it < 0.6 ? it : Math.clamp(0, it < 0.5 ? (1/2**1.5) * (2*it)**1 : (1/2**0.7) * (2*it)**1, 1));
 
-	public resources_map = generatePerlinNoise(W, H, {
-		seed: SEED_HEIGHT_MAP, amplitude: 0.5, octaveCount: 4, persistence: 0.7
+	public resources_map = generatePerlinNoise(SEED_HEIGHT_MAP, W, H, {
+		amplitude: 0.5, octaves: 4, gain: 0.7
 	// }).map(it => Math.clamp(0, it-0.5, 1) + 0.5);
-	}).map(it => it > 0.9 ? it : 0);
+	}, it => it > 0.9 ? it : 0);
 
 	public insert<T extends Entity>(o: T): T {
 		this.entitys.push(o);
@@ -69,7 +131,7 @@ export const world = new class World extends EventDispatcher {
 	}
 
 	public create<const T extends AnyModuleId[]>(cell: Vector2, Modules: T, p: EntityParams<T>): Entity<T> {
-		const o = new Entity(cell, Modules, p);
+		const o = new Entity<T>(cell, Modules, p);
 
 		this.entitys.push(o);
 		this['@create'].emit(o);

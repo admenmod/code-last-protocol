@@ -1,10 +1,10 @@
 import { Vector2 } from 'ver/Vector2';
 import { Event } from 'ver/events';
-import { modules, mod_env, IEntityParams, EntityParams, mod_st } from '@/modules';
+import { modules, mod_env, type EntityParams, mod_st } from '@/modules';
 import { I, world } from '@/game/world';
 import { Module } from '@/modules/Module';
-import { APIResult } from '@/code/Executor';
-import { IScanData } from '@/game/types';
+import type { APIResult } from '@/code/Executor';
+import type { IScanData } from '@/game/types';
 import { Entity } from '@/game/Entity';
 import { number, object } from '@/utils/strc-types';
 
@@ -37,7 +37,7 @@ const API = {
 	scan: (module) => ({ time: TIME, cache: 'TASK_LAST_LINK', task: () => module.scan() })
 } satisfies Record<string, (module: ScanModule, ...args: any) => APIResult<any>>;
 
-class ScanModule extends Module<ID, IOwner, IEntityParams> {
+class ScanModule extends Module<ID, IOwner> {
 	public '@scan' = new Event<ScanModule, [data: IScanData]>(this);
 
 

@@ -1,16 +1,16 @@
 import { Vector2 } from 'ver/Vector2';
 import { math as Math } from 'ver/helpers';
 
-import { modules, mod_env, EntityParams, mod_st } from '@/modules';
+import { modules, mod_env, type EntityParams, mod_st } from '@/modules';
 import { Module } from '@/modules/Module';
-import { IScanData } from '@/game/types';
 import { dirToVec2 } from '@/utils/cell';
 import { I, world } from '@/game/world';
+import type { IScanData } from '@/game/types';
 import type { APIResult } from '@/code/Executor';
 import { CODE } from '@/code/code';
 import { Entity } from '@/game/Entity';
 import { number, object } from '@/utils/strc-types';
-import { GST } from '@/st-types';
+import { types } from '@/st-types';
 // import { c } from '@/animations';
 
 
@@ -65,7 +65,7 @@ const ENV = (module: MoveModule) => {
 	return {
 		turn, move: { to: moveTo, forward: moveForward },
 
-		get direction() { return module.owner.direction as any as () => GST.direction; },
+		get direction() { return module.owner.direction as any as () => types.direction; },
 
 		getForwardCell(data?: IScanData) {
 			if(typeof data === 'undefined') throw new Error('"getForwardCell" invalid argumnets');

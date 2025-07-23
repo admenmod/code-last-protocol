@@ -109,6 +109,4 @@ declare module '@/modules' {
 	namespace mod_env { let cargo: typeof ENV; }
 	namespace mod_st { let cargo: typeof st_model; }
 	namespace modules { let cargo: typeof CargoModule; }
-
-	interface IEntityParams extends st.infer<typeof st_model> {}
 }
